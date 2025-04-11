@@ -1,19 +1,27 @@
-use super::args;
+#[allow(unused)]
+use crate::{
+    GitError,
+    Result,
+};
+use crate::command::SubCommand;
 
-pub fn git_execute() {
-    let args = args::get_args();
-    match args.command.as_str() {
-        "add" => {
-            println!("Adding files to git: {:?}", args.files);
-        }
-        "commit" => {
-            println!("Committing changes with message: {}", args.message);
-        }
-        "push" => {
-            println!("Pushing changes to remote repository");
-        }
-        _ => {
-            println!("Unknown command: {}", args.command);
-        }
+pub fn git_execute(args: Box<dyn SubCommand>) -> Result<()> {
+    match args.run() {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            println!("{}", err);
+            Ok(())
+        },
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add() {
+        
     }
 }
