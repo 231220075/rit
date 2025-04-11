@@ -7,8 +7,8 @@ pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 #[derive(Debug)]
 pub enum GitError {
     InvalidCommand(String),
-    NoSubCommand,
     FileNotFound(String),
+    NoSubCommand,
 }
 
 impl GitError {
@@ -30,7 +30,7 @@ impl GitError {
         )
     }
 
-    pub fn new_invalid_command(msg: &str) -> Box<dyn Error> {
+    pub fn new_invalid_command(msg: String) -> Box<dyn Error> {
         Box::new(
             Self::InvalidCommand(msg.to_string())
         )

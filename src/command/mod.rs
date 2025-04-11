@@ -16,7 +16,8 @@ pub use commit::Commit;
 
 #[allow(unused)]
 use crate::{Result, GitError};
+use std::fmt::Debug;
 
-pub trait SubCommand {
+pub trait SubCommand: Debug {
     fn run(&self) -> Result<()>;
 }

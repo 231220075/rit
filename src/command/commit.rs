@@ -1,28 +1,39 @@
+use std::path::PathBuf;
+use clap::{Parser, Subcommand};
+use std::io;
+
 use crate::{
     GitError,
     Result,
 };
 use super::SubCommand;
 
-enum CommitOption {
-    Message {
-        message: String
-    },              //  [-m | --message] commit message
-    All,            // [-a | --all ] commit all changed files
-}
 
+#[derive(Parser, Debug)]
+#[command(name = "commit", about = "记录对存储库的更改")]
 pub struct Commit {
-    option: Option<CommitOption>,
+    #[arg(short, long, value_name="MESSAGE", help = "commit message")]
+    pub message: Option<String>,
+
+    #[arg(short, long, help = "commit all changed files")]
+    pub all: bool
 }
 
 impl Commit {
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        Err(GitError::new_file_notfound("InvalidCommand".to_string()))
+        let cli = Commit::try_parse_from(args)?;
+        cli.message
+            .ok_or_else(||GitError::new_invalid_command("todo, 在这里调用$EDITOR".to_string()))
+            .map(|message| Box::new(Commit {
+                message: Some(message),
+                all: cli.all,
+            }) as Box<dyn SubCommand>)
     }
 }
 
 impl SubCommand for Commit {
     fn run(&self) -> Result<()> {
+        println!("message: {:?}, all: {}", self.message, self.all);
         Ok(())
     }
 }

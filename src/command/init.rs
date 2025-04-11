@@ -4,6 +4,7 @@ use crate::{
 };
 use super::SubCommand;
 
+#[derive(Debug)]
 pub struct Init;
 
 impl Init {

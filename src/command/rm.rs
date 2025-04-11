@@ -1,27 +1,50 @@
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use std::result;
 use crate::{
     GitError,
     Result,
 };
 use super::SubCommand;
 
-enum RmOption {
-    Cached, // [--cahced] only remove from the index
-    DryRun, // [-n | --dry-run]  dry run
-}
+
+#[derive(Parser, Debug)]
+#[command(name = "rm", about = "从工作树和索引中删除文件")]
 pub struct Rm {
-    option: Option<RmOption>,
+    #[arg(long, help = "only remove from the index")]
+    cached: bool,
+
+    #[arg(short='n', long="dry-run", help = "dry run")]
+    dry_run: bool,
+
+    #[arg(required = true, value_name="paths", num_args = 1.., value_parser = Rm::parse_path)]
     paths: Vec<PathBuf>,
 }
 
 impl Rm {
+    fn parse_path(arg: &str) -> result::Result<PathBuf, String> {
+        let path = PathBuf::from(arg);
+        if path.exists() {
+            Ok(path)
+        }
+        else {
+            Err(format!("{} not found", arg))
+        }
+    }
+
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        Err(GitError::new_file_notfound("InvalidCommand".to_string()))
+        Ok(Box::new(Rm::try_parse_from(args)?))
     }
 }
 
 impl SubCommand for Rm {
     fn run(&self) -> Result<()> {
+        println!("{:?} {}", self.cached, self.paths.iter().flat_map(|x|x.to_str().map(String::from))
+            .fold(String::from(""), |mut pre: String, curr: String| {
+                            pre.push_str(" ");
+                            pre.push_str(&curr);
+                            pre
+                        }));
         Ok(())
     }
 }

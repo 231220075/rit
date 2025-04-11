@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::result;
 use clap::{Parser, Subcommand};
 
 use crate::{
@@ -7,52 +8,32 @@ use crate::{
 };
 use super::SubCommand;
 
-// A simple CLI tool to add files or directories.
+
 #[derive(Parser, Debug)]
-#[command(name = "add", about = "用法：git add [<选项>] [--] <路径规格>...]]")]
-struct Cli {
-    // Enable dry-run mode (n  o actual changes)
-    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
-    dry_run:  bool,
-
-    // Paths to add
-    #[arg(required = true, num_args = 1..)]
-    paths:  Vec<String>,
-}
-
-
-
+#[command(name = "add", about = "将文件内容添加到索引中")]
 pub struct Add {
+    #[arg(short = 'n', long = "dry-run", help = "dry run", action = clap::ArgAction::SetTrue, required = false)]
     dry_run: bool,
+
+    #[arg(required = true, num_args = 1.., value_parser = Add::parse_paths)]
     paths: Vec<PathBuf>,
 }
 
 impl Add {
-    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        let cli = Cli::try_parse_from(args)?;
-        if cli.dry_run {
-            println!("add dry_run");
-        }
+    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+        Ok(Box::new(Add::try_parse_from(args)?))
+    }
 
-        let mut non_exist = cli.paths.iter()
-            .map(PathBuf::from)
-            .filter(|p| !p.exists())
-            .peekable();
-
-        if non_exist.peek().is_none() {
-            Ok(Box::new(Self {
-                dry_run: cli.dry_run,
-                paths: cli.paths.iter().map(PathBuf::from).collect(),
-            }))
+    fn parse_paths(arg: &str) -> result::Result<PathBuf, String> {
+        let path = PathBuf::from(arg);
+        if path.exists() {
+            Ok(path)
         }
         else {
-            Err(GitError::new_file_notfound(
-                    non_exist.flat_map(|x|x.to_str().map(String::from))
-                        .fold(String::from(""), |mut pre: String, curr: String|  pre + &curr)
-                )
-            )
+            Err(format!("{} not found", arg))
         }
     }
+
 }
 
 impl SubCommand for Add {
