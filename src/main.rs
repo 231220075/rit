@@ -10,17 +10,18 @@ use crate::utils::error::{
     GitError,
 };
 
-fn main() -> Result<()> {
+fn main() {
     /*  later to change to Args::get_from_cli()
      *  let args = Args::get_from_cli();
     */
 
-    let args = args::get_args(env::args().skip(1));
-    match args {
-        Ok(cmd) => cli::command::git_execute(cmd),
+    let result = args::get_args(env::args().skip(1))
+                    .and_then(cli::command::git_execute);
+    std::process::exit(match result {
+        Ok(retval) => retval,
         Err(err) => {
-            eprintln!("{err}");
-            Ok(())
+            eprintln!("{}", err);
+            1
         }
-    }
+    });
 }

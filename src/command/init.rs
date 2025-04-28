@@ -14,7 +14,7 @@ impl Init {
 }
 
 impl SubCommand for Init {
-    fn run(&self) -> Result<()> {
-        Ok(())
+    fn run(&self) -> Result<i32> {
+        Ok(0)
     }
 }

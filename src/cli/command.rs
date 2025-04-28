@@ -5,14 +5,8 @@ use crate::{
 };
 use crate::command::SubCommand;
 
-pub fn git_execute(args: Box<dyn SubCommand>) -> Result<()> {
-    match args.run() {
-        Ok(()) => Ok(()),
-        Err(err) => {
-            println!("{}", err);
-            Ok(())
-        },
-    }
+pub fn git_execute(args: Box<dyn SubCommand>) -> Result<i32> {
+    args.run()
 }
 
 

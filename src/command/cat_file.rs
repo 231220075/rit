@@ -1,7 +1,12 @@
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
-use crate::utils::zlib::decompress_text;
+use crate::{
+    utils::{
+        zlib::decompress_file,
+        fs::obj_to_pathbuf,
+    },
+};
 use crate::{
     GitError,
     Result,
@@ -13,16 +18,16 @@ use super::SubCommand;
 #[command(name = "cat-file", about = "Provide contents or details of repository objects")]
 pub struct CatFile {
 
-    #[arg(short = 'p', group = "option", help = "pretty-print <object> content")]
+    #[arg(required = true, short = 'p', group = "option", help = "pretty-print <object> content")]
     print: bool,
 
-    #[arg(short = 'e', group = "option", help = "check if <object> exists")]
-    exist: bool,
+    #[arg(required = true, short = 'e', group = "option", help = "check if <object> exists")]
+    check_exist: bool,
 
     #[arg(short = 't', group = "option", help = "show object type (one of 'blob', 'tree', 'commit', 'tag', ...)")]
     show_type: bool,
 
-    #[arg(required = true, value_parser = obj_to_pathbuf)]
+    #[arg(required = true, value_parser = obj_to_pathbuf::<PathBuf>)]
     objpath: PathBuf,
 }
 
@@ -31,38 +36,30 @@ impl CatFile {
         Ok(Box::new(CatFile::try_parse_from(args)?))
     }
 
-    pub fn cat(&self) -> Result<String> {
-        Ok(format!(""))
-    }
-}
-
-fn obj_to_pathbuf(s:  &str) -> std::result::Result<PathBuf, String> {
-    if s.len() != 40 {
-        Err(format!("{} 长度不等于40，实际长度: {}", s, s.len()))
-    }
-    else {
-        let (first, second) = s.split_at(2);
-        // todo! <++> let git_path = find_git_path();
-        let mut git_path = PathBuf::from(".git/objects");
-        git_path.extend([first, second].iter());
-        if !git_path.exists() {
-            Err(format!("{} 不存在", git_path.to_str().unwrap()))
-        }
-        else {
-            Ok(git_path)
-        }
+    pub fn cat(&self) -> Result<()> {
+        let mut text = decompress_file(&self.objpath)?;
+        let index = text.find('\0').expect("decompress_text 实现错误，返回对象不符合");
+        print!("{}", &text[index + 1..]);
+        Ok(())
     }
 }
 
 
 impl SubCommand for CatFile {
-    fn run(&self) -> Result<()> {
-        let text = decompress_text(&self.objpath)?;
-        if let Some(index) = text.find('\0') {
-            print!("{}", &text[index + 1..]);
+    fn run(&self) -> Result<i32> {
+        if !self.objpath.exists()
+        {
+            if self.check_exist {
+                return Ok(1);
+            }
+            else {
+                return Err(GitError::new_file_notfound(format!("{} 不存在", self.objpath.to_str().unwrap())));
+            }
         }
-        Ok(())
-
+        else if self.print {
+            self.cat();
+        }
+        Ok(0)
     }
 }
 

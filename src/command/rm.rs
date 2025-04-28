@@ -38,13 +38,13 @@ impl Rm {
 }
 
 impl SubCommand for Rm {
-    fn run(&self) -> Result<()> {
+    fn run(&self) -> Result<i32> {
         println!("{:?} {}", self.cached, self.paths.iter().flat_map(|x|x.to_str().map(String::from))
             .fold(String::from(""), |mut pre: String, curr: String| {
                             pre.push_str(" ");
                             pre.push_str(&curr);
                             pre
                         }));
-        Ok(())
+        Ok(0)
     }
 }

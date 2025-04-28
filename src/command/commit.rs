@@ -32,8 +32,8 @@ impl Commit {
 }
 
 impl SubCommand for Commit {
-    fn run(&self) -> Result<()> {
+    fn run(&self) -> Result<i32> {
         println!("message: {:?}, all: {}", self.message, self.all);
-        Ok(())
+        Ok(0)
     }
 }

@@ -2,7 +2,10 @@ use crate::{
     GitError,
     Result,
 };
-use crate::command::{Init, Add, Rm, Commit, CatFile, SubCommand};
+use crate::command::{
+    Init, Add, Rm, Commit,
+    CatFile, SubCommand, HashObject
+};
 
 
 pub fn get_args(mut raw_args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
@@ -11,6 +14,7 @@ pub fn get_args(mut raw_args: impl Iterator<Item = String>) -> Result<Box<dyn Su
         .ok_or(GitError::no_subcommand())?;
 
     match command.as_str() {
+        "hash-object" => HashObject::from_args(raw_args),
         "cat-file" => CatFile::from_args(raw_args),
         "commit" => Commit::from_args(raw_args),
         "init"   => Init::from_args(raw_args),
