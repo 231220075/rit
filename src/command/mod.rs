@@ -17,6 +17,8 @@ pub mod rm;
 /// - [plumbind commands](https: //git-scm.com/book/en/v2/Appendix-C:-Git-Commands-Plumbing-Commands)
 pub mod cat_file;
 pub mod hash_object;
+pub mod update_index;
+pub mod write_tree;
 
 pub use init::Init;
 pub use add::Add;

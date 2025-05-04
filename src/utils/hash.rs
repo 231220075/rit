@@ -33,8 +33,8 @@ where T: AsRef<Path>
         .map(sha_hash)
 }
 
-pub fn hash_object(bytes: Vec<u8>) -> Result<String>
+pub fn hash_object(bytes: Vec<u8>, obj_type: &str) -> Result<String>
 {
-    let meta = format!("blob {}\0", bytes.len()).into_bytes().into_iter();
+    let meta = format!("{} {}\0", obj_type, bytes.len()).into_bytes().into_iter();
     Ok(sha_hash(meta.chain(bytes)))
 }

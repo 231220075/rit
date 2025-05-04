@@ -1,10 +1,13 @@
+use itertools::Update;
+
+use crate::command::write_tree::WriteTree;
 use crate::{
     GitError,
     Result,
 };
 use crate::command::{
     Init, Add, Rm, Commit,
-    CatFile, SubCommand, HashObject
+    CatFile, SubCommand, HashObject, update_index::UpdateIndex,
 };
 
 
@@ -20,6 +23,8 @@ pub fn get_args(mut raw_args: impl Iterator<Item = String>) -> Result<Box<dyn Su
         "init"   => Init::from_args(raw_args),
         "add"    => Add::from_args(raw_args),
         "rm"     => Rm::from_args(raw_args),
+        "update-index" => UpdateIndex::from_args(raw_args),
+        "write-tree" => WriteTree::from_args(raw_args),
         _        => Err(GitError::invalid_command())
     }
 }

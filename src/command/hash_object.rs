@@ -41,7 +41,7 @@ impl HashObject {
     }
 
     pub fn hash(&self, bytes: Vec<u8>) -> Result<String> {
-        Ok(hash_object(bytes)?)
+        Ok(hash_object(bytes, "blob")?)
     }
 }
 
