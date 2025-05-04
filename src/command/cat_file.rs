@@ -1,12 +1,11 @@
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
-use crate::{
-    utils::{
+use crate::utils::{
         zlib::decompress_file,
         fs::obj_to_pathbuf,
-    },
-};
+    };
+
 use crate::{
     GitError,
     Result,
