@@ -19,6 +19,7 @@ pub mod cat_file;
 pub mod hash_object;
 pub mod update_index;
 pub mod write_tree;
+pub mod commit_tree;
 
 pub use init::Init;
 pub use add::Add;
@@ -26,6 +27,7 @@ pub use rm::Rm;
 pub use commit::Commit;
 pub use cat_file::CatFile;
 pub use hash_object::HashObject;
+
 
 #[allow(unused)]
 use crate::{Result, GitError};
