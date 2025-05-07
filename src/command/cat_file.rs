@@ -35,8 +35,8 @@ impl CatFile {
         Ok(Box::new(CatFile::try_parse_from(args)?))
     }
 
-    pub fn cat(&self) -> Result<()> {
-        let mut text = decompress_file(&self.objpath)?;
+    pub fn cat(&self, gitdir: PathBuf) -> Result<()> {
+        let mut text = decompress_file(&gitdir)?;
         let index = text.find('\0').expect("decompress_text 实现错误，返回对象不符合");
         print!("{}", &text[index + 1..]);
         Ok(())
@@ -45,18 +45,20 @@ impl CatFile {
 
 
 impl SubCommand for CatFile {
-    fn run(&self) -> Result<i32> {
-        if !self.objpath.exists()
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        let mut gitdir = gitdir?;
+        gitdir.push(&self.objpath);
+        if !gitdir.exists()
         {
             if self.check_exist {
-                return Ok(1);
+                return Ok(if gitdir.exists() { 0 } else { 1 });
             }
             else {
-                return Err(GitError::new_file_notfound(format!("{} 不存在", self.objpath.to_str().unwrap())));
+                return Err(GitError::new_file_notfound(format!("{} 不存在", gitdir.to_str().unwrap())));
             }
         }
         else if self.print {
-            self.cat();
+            self.cat(gitdir);
         }
         Ok(0)
     }

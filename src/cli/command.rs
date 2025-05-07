@@ -1,12 +1,13 @@
 #[allow(unused)]
 use crate::{
+    command::SubCommand,
+    utils::fs::get_git_dir,
     GitError,
     Result,
 };
-use crate::command::SubCommand;
 
 pub fn git_execute(args: Box<dyn SubCommand>) -> Result<i32> {
-    args.run()
+    args.run(get_git_dir())
 }
 
 
@@ -16,6 +17,6 @@ mod tests {
 
     #[test]
     fn test_add() {
-        
+
     }
 }

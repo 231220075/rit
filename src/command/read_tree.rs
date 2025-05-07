@@ -33,8 +33,9 @@ impl ReadTree {
 }
 
 impl SubCommand for ReadTree {
-    fn run(&self) -> Result<i32> {
-        let index_path = Path::new(".git").join("index");
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        let mut index_path = gitdir?;
+        index_path.push("index");
         let mut index = Index::new();
         index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand("Failed to read index file".to_string())

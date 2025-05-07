@@ -2,7 +2,10 @@ use crate::{
     GitError,
     Result,
 };
-use super::SubCommand;
+use super::{
+    SubCommand,
+    PathBuf
+};
 
 #[derive(Debug)]
 pub struct Init;
@@ -14,7 +17,7 @@ impl Init {
 }
 
 impl SubCommand for Init {
-    fn run(&self) -> Result<i32> {
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         Ok(0)
     }
 }
