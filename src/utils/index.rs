@@ -38,6 +38,7 @@ impl Index {
         let file = OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(path)?;
         let mut writer = BufWriter::new(file);
     
@@ -55,7 +56,7 @@ impl Index {
         Ok(())
     }
 
-    pub fn read_from_file(path: &Path) -> std::io::Result<Self> {
+    pub fn read_from_file(&self, path: &Path) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
         let mut index = Index::new();
@@ -85,5 +86,11 @@ impl Index {
             ));
         }
         Ok(index)
+    }
+
+    pub fn remove_entry(&mut self, name: &str) -> bool {
+        let original_len = self.entries.len();
+        self.entries.retain(|entry| entry.name != name);
+        original_len != self.entries.len()
     }
 }
