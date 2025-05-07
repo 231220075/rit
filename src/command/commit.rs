@@ -32,7 +32,7 @@ impl Commit {
 }
 
 impl SubCommand for Commit {
-    fn run(&self) -> Result<i32> {
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         println!("message: {:?}, all: {}", self.message, self.all);
         Ok(0)
     }

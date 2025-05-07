@@ -7,7 +7,10 @@ use flate2::{
     bufread::ZlibEncoder,
 };
 use crate::{
-    utils::fs::read_file_as_bytes,
+    utils::{
+        fs::read_file_as_bytes,
+        objtype::ObjType,
+    },
     GitError,
     Result,
 };
@@ -51,8 +54,8 @@ where P: AsRef<Path>
     compress(bytes)
 }
 
-pub fn compress_object(bytes: Vec<u8>) -> Result<Vec<u8>>
+pub fn compress_object<T: ObjType>(bytes: Vec<u8>) -> Result<Vec<u8>>
 {
-    let meta = format!("blob {}\0", bytes.len()).into_bytes().into_iter();
+    let meta = format!("{} {}\0", T::VALUE, bytes.len()).into_bytes().into_iter();
     compress(meta.chain(bytes))
 }
