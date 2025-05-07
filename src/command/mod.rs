@@ -33,9 +33,12 @@ pub use hash_object::HashObject;
 
 #[allow(unused)]
 use crate::{Result, GitError};
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    path::PathBuf,
+};
 
 pub trait SubCommand: Debug {
-    fn run(&self) -> Result<i32>;
+    fn run(&self, git_dir: Result<PathBuf>) -> Result<i32>;
 }
 

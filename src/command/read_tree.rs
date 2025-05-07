@@ -26,15 +26,16 @@ pub struct ReadTree {
 }
 
 impl ReadTree {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        let mut read_tree = ReadTree::try_parse_from(args)?;
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+        let read_tree = ReadTree::try_parse_from(args)?;
         Ok(Box::new(read_tree))
     }
 }
 
 impl SubCommand for ReadTree {
-    fn run(&self) -> Result<i32> {
-        let index_path = Path::new(".git").join("index");
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        let mut index_path = gitdir?;
+        index_path.push("index");
         let mut index = Index::new();
         index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand("Failed to read index file".to_string())

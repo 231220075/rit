@@ -6,9 +6,13 @@ use crate::{
     Result,
 };
 use crate::utils::{
-    fs::read_file_as_bytes,
+    fs::{
+        read_file_as_bytes,
+        get_git_dir,
+    },
     hash::hash_object,
     index::{Index, IndexEntry},
+    objtype::Blob,
 };
 use super::SubCommand;
 
@@ -32,18 +36,19 @@ pub struct UpdateIndex {
 }
 
 impl UpdateIndex {
-    pub fn from_args(mut args: impl Iterator<Item = String>)
+    pub fn from_args(args: impl Iterator<Item = String>)
 -> Result<Box<dyn SubCommand>>{
-        let mut update_index = UpdateIndex::try_parse_from(args)?;
+        let update_index = UpdateIndex::try_parse_from(args)?;
         //update_index.gitdir = gitdir;
         Ok(Box::new(update_index))
-    }    
+    }
 }
 
 
 impl SubCommand for UpdateIndex {
-    fn run(&self) -> Result<i32> {
-        let index_path = Path::new(".git").join("index");
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        let mut index_path = gitdir?;
+        index_path.push("index");
         let mut index = Index::new();
 
         if index_path.exists() {
@@ -70,7 +75,7 @@ impl SubCommand for UpdateIndex {
                     return Err(Box::new(GitError::FileNotFound(name.clone())));
                 }
                 let bytes = read_file_as_bytes(&file_path)?;
-                let hash = hash_object(bytes, "blob")?;
+                let hash = hash_object::<Blob>(bytes)?;
                 let mode = 0o100644;
                 let entry = IndexEntry::new(mode, hash, name.clone());
                 index.add_entry(entry);
@@ -134,7 +139,7 @@ mod tests {
         ];
 
         let update_index = UpdateIndex::try_parse_from(args).unwrap();
-        let result = update_index.run();
+        let result = update_index.run(get_git_dir());
 
         // 验证运行结果
         assert!(result.is_ok());
@@ -168,7 +173,8 @@ mod tests {
         ];
 
         let update_index = UpdateIndex::try_parse_from(args).unwrap();
-        let result = update_index.run();
+        println!("{:?}", temp_dir.path().join(".git"));
+        let result = update_index.run(Ok(temp_dir.path().join(".git")));
 
         // 验证运行结果
         assert!(result.is_ok());
@@ -194,7 +200,7 @@ mod tests {
         ];
 
         let update_index = UpdateIndex::try_parse_from(args).unwrap();
-        let result = update_index.run();
+        let result = update_index.run(get_git_dir());
 
         // 验证运行结果
         assert!(result.is_err());

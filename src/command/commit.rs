@@ -23,7 +23,7 @@ impl Commit {
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         let cli = Commit::try_parse_from(args)?;
         cli.message
-            .ok_or_else(||GitError::new_invalid_command("todo, 在这里调用$EDITOR".to_string()))
+            .ok_or_else(||GitError::invalid_command("todo, 在这里调用$EDITOR".to_string()))
             .map(|message| Box::new(Commit {
                 message: Some(message),
                 all: cli.all,
@@ -32,7 +32,7 @@ impl Commit {
 }
 
 impl SubCommand for Commit {
-    fn run(&self) -> Result<i32> {
+    fn run(&self, _gitdir: Result<PathBuf>) -> Result<i32> {
         println!("message: {:?}, all: {}", self.message, self.all);
         Ok(0)
     }

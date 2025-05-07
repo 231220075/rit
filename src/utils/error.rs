@@ -1,5 +1,6 @@
 use std::fmt;
 use std::error::Error;
+use std::path::Path;
 use GitError::{InvalidCommand, FileNotFound, NoSubCommand};
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -7,8 +8,11 @@ pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 #[derive(Debug)]
 pub enum GitError {
     InvalidCommand(String),
+    InvalidHash(String),
+    InvalidObject(String),
     FileNotFound(String),
     NoSubCommand,
+    NotInGitRepo,
 }
 
 impl GitError {
@@ -18,27 +22,33 @@ impl GitError {
         )
     }
 
-    pub fn invalid_command() -> Box<dyn Error> {
+    pub fn file_notfound(msg: String) -> Box<dyn Error> {
         Box::new(
-            Self::InvalidCommand("invalid command!".to_string())
+            Self::FileNotFound(msg)
         )
     }
 
-    pub fn file_notfound() -> Box<dyn Error> {
-        Box::new(
-            Self::FileNotFound("file not found".to_string())
-        )
-    }
-
-    pub fn new_invalid_command(msg: String) -> Box<dyn Error> {
+    pub fn invalid_command(msg: String) -> Box<dyn Error> {
         Box::new(
             Self::InvalidCommand(msg.to_string())
         )
     }
 
-    pub fn new_file_notfound(msg: String) -> Box<dyn Error> {
+    pub fn not_in_gitrepo() -> Box<dyn Error> {
         Box::new(
-            Self::FileNotFound(msg.to_string())
+            Self::NotInGitRepo
+        )
+    }
+
+    pub fn invalid_hash(hash: &str) -> Box<dyn Error> {
+        Box::new(
+            Self::InvalidHash(format!("expect hash code of length 40 but got {} of length {}", hash, hash.len()))
+        )
+    }
+
+    pub fn invalid_object(path: &str) -> Box<dyn Error> {
+        Box::new(
+            Self::InvalidObject(format!("invlaid object format: {}", path))
         )
     }
 }
@@ -48,7 +58,10 @@ impl fmt::Display for GitError {
         match self {
             InvalidCommand(cmd) => write!(f, "Invalid command: {}", cmd),
             FileNotFound(file)  => write!(f, "File not found: {}",  file),
-            NoSubCommand => write!(f, "no sub command"),
+            GitError::InvalidHash(hash) => write!(f, "Invalid hash: {}", hash),
+            GitError::NoSubCommand => write!(f, "no sub command"),
+            GitError::NotInGitRepo => write!(f, "not in a git repository"),
+            GitError::InvalidObject(msg) => write!(f, "{}", msg),
         }
     }
 }

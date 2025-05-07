@@ -25,23 +25,28 @@ impl Rm {
     fn parse_path(arg: &str) -> result::Result<PathBuf, String> {
         let path = PathBuf::from(arg);
         if path.exists() {
+            println!("Ok = {}", path.display());
             Ok(path)
         }
         else {
+            println!("Err = {}", arg);
             Err(format!("{} not found", arg))
         }
     }
 
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        Ok(Box::new(Rm::try_parse_from(args)?))
+        let a = Rm::try_parse_from(args)?;
+
+        println!("{:?}", a);
+        Ok(Box::new(a))
     }
 }
 
 impl SubCommand for Rm {
-    fn run(&self) -> Result<i32> {
+    fn run(&self, _gitdir: Result<PathBuf>) -> Result<i32> {
         println!("{:?} {}", self.cached, self.paths.iter().flat_map(|x|x.to_str().map(String::from))
             .fold(String::from(""), |mut pre: String, curr: String| {
-                            pre.push_str(" ");
+                            pre.push(' ');
                             pre.push_str(&curr);
                             pre
                         }));

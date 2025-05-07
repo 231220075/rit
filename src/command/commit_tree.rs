@@ -5,6 +5,8 @@ use clap::{Parser, Subcommand};
 use crate::utils::{
     zlib::compress_object,
     hash::hash_object,
+    objtype::Commit,
+    fs::write_object,
 };
 use crate::{
     GitError,
@@ -26,7 +28,7 @@ pub struct CommitTree {
 }
 
 impl CommitTree {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(CommitTree::try_parse_from(args)?))
     }
 
@@ -36,7 +38,7 @@ impl CommitTree {
         (author_name, author_email)
     }
 
-    pub fn build_commit_content(&self) -> Result<String> {
+    pub fn build_commit_content(&self) -> String {
         let (author_name, author_email) = Self::get_author_info();
 
         let mut content = format!("tree {}\n", self.tree_hash);
@@ -62,29 +64,16 @@ impl CommitTree {
 
         content.push_str(&self.message);
 
-        Ok(content)
+        content
     }
 
-    pub fn write_commit_object(&self, commit_content: String) -> Result<String> {
-        let commit_hash = hash_object(commit_content.as_bytes().to_vec(), "commit")?;
-
-        let mut objpath = PathBuf::from(".git/objects");
-        objpath.push(&commit_hash[0..2]);
-        objpath.push(&commit_hash[2..]);
-
-        std::fs::create_dir_all(objpath.parent().unwrap()).map_err(|_| GitError::FileNotFound("commit path not found".to_string()))?;
-        let compressed = compress_object(commit_content.into_bytes())?; 
-        std::fs::write(&objpath, compressed)?;
-
-        Ok(commit_hash)
-    }
 }
 
 impl SubCommand for CommitTree {
-    fn run(&self) -> Result<i32> {
-        let commit_content = self.build_commit_content()?;
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        let commit_content = self.build_commit_content();
 
-        let commit_hash = self.write_commit_object(commit_content)?;
+        let commit_hash = write_object::<Commit>(gitdir?, commit_content.into_bytes())?;
 
         println!("{}", commit_hash);
 
@@ -118,7 +107,7 @@ mod tests {
             pcommit: Some("8ea8033adc42a4148773457c1ad871d9e2f21d2e".to_string()),
         };
 
-        let content = commit_tree.build_commit_content().unwrap();
+        let content = commit_tree.build_commit_content();
 
         assert!(content.contains("tree d8329fc1cc938780ffdd9f94e0d364e0ea74f579"));
         assert!(content.contains("parent 8ea8033adc42a4148773457c1ad871d9e2f21d2e"));
@@ -129,7 +118,12 @@ mod tests {
 
     #[test]
 fn test_write_commit_object() {
+    use crate::utils::{
+        fs::write_object,
+        objtype::Commit,
+    };
     let temp_dir = setup_test_git_dir();
+    println!("{:?}", temp_dir);
     let git_dir = temp_dir.path().join(".git");
 
     // 设置当前工作目录
@@ -141,8 +135,11 @@ fn test_write_commit_object() {
         pcommit: None,
     };
 
-    let content = commit_tree.build_commit_content().unwrap();
-    let commit_hash = commit_tree.write_commit_object(content).unwrap();
+    let content = commit_tree.build_commit_content();
+    let commit_hash = write_object::<Commit>(git_dir.join("objects"), content.into_bytes()).unwrap();
+    let mut input = String::new();
+
+    println!("请输入一些内容：");
 
     let object_path = git_dir
         .join("objects")

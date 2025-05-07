@@ -13,8 +13,10 @@ use crate::utils::{
     fs::{
         obj_to_pathbuf,
         read_file_as_bytes,
+        write_object,
     },
     hash::hash_object,
+    objtype::Blob,
 };
 
 use crate::{
@@ -36,21 +38,22 @@ pub struct HashObject {
 }
 
 impl HashObject {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(HashObject::try_parse_from(args)?))
     }
 
     pub fn hash(&self, bytes: Vec<u8>) -> Result<String> {
-        Ok(hash_object(bytes, "blob")?)
+        hash_object::<Blob>(bytes)
     }
 }
 
 
 impl SubCommand for HashObject {
     /*  fn run(&self, gitdir: path) -> Result<i32>  */
-    fn run(&self) -> Result<i32> {
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let bytes = read_file_as_bytes(&self.filepath)?;
         let path = self.hash(bytes.clone())?;
+        let mut gitdir = gitdir?;
 
         if !self.write {
             println!("{}", path);
@@ -59,14 +62,12 @@ impl SubCommand for HashObject {
         else {
 
             /*  dummy implementation!! should mkdir first  */
-            let mut objpath = PathBuf::from("./.git/objects/");
-            objpath.push(&path[..2]);
-            objpath.push(&path[2..]);
-            println!("write to {}", objpath.display());
+            gitdir.push("objects");
 
-            compress_object(bytes)
-                .and_then(|b| Ok(write(objpath, b)?))
-                .map(|_| 0)
+            /*  debug  */
+            println!("write to {}", gitdir.clone().display());
+            write_object::<Blob>(gitdir, bytes)?;
+            Ok(0)
         }
     }
 }
