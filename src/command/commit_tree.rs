@@ -26,17 +26,17 @@ pub struct CommitTree {
 }
 
 impl CommitTree {
-    fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(CommitTree::try_parse_from(args)?))
     }
 
-    fn get_author_info() -> (String, String) {
+    pub fn get_author_info() -> (String, String) {
         let author_name = env::var("GIT_AUTHOR_NAME").unwrap_or_else(|_| "Default Name".to_string());
         let author_email = env::var("GIT_AUTHOR_EMAIL").unwrap_or_else(|_| "default_email@example.com".to_string());
         (author_name, author_email)
     }
 
-    fn build_commit_content(&self) -> Result<String> {
+    pub fn build_commit_content(&self) -> Result<String> {
         let (author_name, author_email) = Self::get_author_info();
 
         let mut content = format!("tree {}\n", self.tree_hash);
@@ -65,7 +65,7 @@ impl CommitTree {
         Ok(content)
     }
 
-    fn write_commit_object(&self, commit_content: String) -> Result<String> {
+    pub fn write_commit_object(&self, commit_content: String) -> Result<String> {
         let commit_hash = hash_object(commit_content.as_bytes().to_vec(), "commit")?;
 
         let mut objpath = PathBuf::from(".git/objects");
@@ -90,4 +90,70 @@ impl SubCommand for CommitTree {
 
         Ok(0)
     }
+}
+
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use std::fs;
+
+    fn setup_test_git_dir() -> tempfile::TempDir {
+        let temp_dir = tempdir().unwrap();
+        let git_dir = temp_dir.path().join(".git");
+        fs::create_dir_all(git_dir.join("objects")).unwrap();
+        temp_dir
+    }
+
+    #[test]
+    fn test_build_commit_content() {
+        let commit_tree = CommitTree {
+            tree_hash: "d8329fc1cc938780ffdd9f94e0d364e0ea74f579".to_string(),
+            message: "Initial commit".to_string(),
+            pcommit: Some("8ea8033adc42a4148773457c1ad871d9e2f21d2e".to_string()),
+        };
+
+        let content = commit_tree.build_commit_content().unwrap();
+
+        assert!(content.contains("tree d8329fc1cc938780ffdd9f94e0d364e0ea74f579"));
+        assert!(content.contains("parent 8ea8033adc42a4148773457c1ad871d9e2f21d2e"));
+        assert!(content.contains("author Default Name <default_email@example.com>"));
+        assert!(content.contains("committer Default Name <default_email@example.com>"));
+        assert!(content.contains("Initial commit"));
+    }
+
+    #[test]
+fn test_write_commit_object() {
+    let temp_dir = setup_test_git_dir();
+    let git_dir = temp_dir.path().join(".git");
+
+    // 设置当前工作目录
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let commit_tree = CommitTree {
+        tree_hash: "d8329fc1cc938780ffdd9f94e0d364e0ea74f579".to_string(),
+        message: "Initial commit".to_string(),
+        pcommit: None,
+    };
+
+    let content = commit_tree.build_commit_content().unwrap();
+    let commit_hash = commit_tree.write_commit_object(content).unwrap();
+
+    let object_path = git_dir
+        .join("objects")
+        .join(&commit_hash[0..2])
+        .join(&commit_hash[2..]);
+
+    println!("Object path: {:?}", object_path); // 调试输出
+
+    assert!(object_path.exists());
+
+    let compressed_data = fs::read(object_path).unwrap();
+    assert!(!compressed_data.is_empty());
+}
 }

@@ -18,8 +18,10 @@ pub mod rm;
 pub mod cat_file;
 pub mod hash_object;
 pub mod update_index;
+pub mod read_tree;
 pub mod write_tree;
 pub mod commit_tree;
+
 
 pub use init::Init;
 pub use add::Add;
