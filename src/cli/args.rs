@@ -111,10 +111,10 @@ mod test {
         File::create("add_tmp3");
         let args = to_strings(&["add", ".", "add_tmp1", "add_tmp2", "add_tmp3"]);
         let command = get_args(args);
-        assert!(command.is_ok());
         remove_file("add_tmp1");
         remove_file("add_tmp2");
         remove_file("add_tmp3");
+        assert!(command.is_ok());
     }
 
 
