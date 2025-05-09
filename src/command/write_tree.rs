@@ -13,6 +13,7 @@ use crate::utils::{
     objtype::Tree,
 };
 use super::SubCommand;
+use hex;
 
 #[derive(Parser, Debug)]
 #[command(name = "write-tree", about = "create a tree object according to the current index")]
@@ -29,39 +30,41 @@ impl WriteTree {
 
     fn build_tree_content(&self, index: &Index) -> Result<Vec<u8>>{
         let mut tree_content = Vec::new();
+        //tree_content.extend_from_slice(b"tree ");
+        let mut temp =Vec::new();
+
         for entry in &index.entries {
-            let mode = format!("{:06o}", entry.mode);
-            tree_content.extend_from_slice(mode.as_bytes());
-            tree_content.push(b' ');
-            if mode == "040000"{
-                tree_content.extend_from_slice("tree ".as_bytes());
-            }
-            else{
-                tree_content.extend_from_slice("blob ".as_bytes());
-            }
-            
-            tree_content.push(b' ');
-            tree_content.extend_from_slice(&entry.hash.as_bytes());
-            tree_content.push('\t' as u8);
-            tree_content.extend_from_slice(entry.name.as_bytes());
-            tree_content.push('\n' as u8);
+            let mode = format!("{:o}", entry.mode);
+            temp.extend_from_slice(mode.as_bytes());
+            temp.push(b' ');
+            temp.extend_from_slice(&entry.name.as_bytes());
+            temp.push('\0' as u8);
+            let hash_bytes = hex::decode(&entry.hash).map_err(|_| {
+                GitError::InvalidCommand(format!("Invalid hash format: {}", entry.hash))
+            })?;
+            temp.extend_from_slice(&hash_bytes);
         }
+        //let len_str = format!("{}\0", temp.len());
+        //tree_content.extend_from_slice(len_str.as_bytes());
+        tree_content.extend_from_slice(&temp);
         Ok(tree_content)
     }
 }
 impl SubCommand for WriteTree {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         //let index_path = self.gitdir.join("index");
-        let index_path = Path::new(".git").join("index");
+        let mut gitdir = gitdir?;
+        let index_path =gitdir.clone().join("index");
+        //let index_path = Path::new(".git").join("index");
         let mut index = Index::new();
         let mut index = index.read_from_file(&index_path).map_err(|_| {
-            GitError::InvalidCommand("Failed to read index file".to_string())
+            GitError::InvalidCommand(index_path.to_str().unwrap().to_string())
         })?;
         println!("index len = {}", index.entries.len());
         let tree_content = self.build_tree_content(&index)?;
         let tree_hash = hash_object::<Tree>(tree_content.clone())?;
         //let mut objpath = self.gitdir.join("objects");
-        let mut objpath = Path::new(".").join("objects");
+        let mut objpath = gitdir.clone().join("objects");
         objpath.push(&tree_hash[0..2]);
         objpath.push(&tree_hash[2..]);
         std::fs::create_dir_all(objpath.parent().unwrap())?;

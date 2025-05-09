@@ -48,6 +48,7 @@ impl SubCommand for CatFile {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let mut gitdir = gitdir?;
         gitdir.push(&self.objpath);
+        println!("{}", gitdir.display());
         if !gitdir.exists()
         {
             if self.check_exist {
@@ -58,9 +59,17 @@ impl SubCommand for CatFile {
             }
         }
         else if self.print {
-            self.cat(gitdir);
+            self.cat(gitdir).map(|_| 0)
         }
-        Ok(0)
+        else if self.show_type {
+            let text = decompress_file(&gitdir)?;
+            let index = text.find('\0').expect("decompress_text 实现错误，返回对象不符合");
+            println!("{}", &text[0..index]);
+            Ok(0)
+        }
+        else {
+            return Err(GitError::new_invalid_command("cat-file".to_string()));
+        }
     }
 }
 

@@ -16,5 +16,5 @@ impl ObjType for Tree {
 
 pub struct Commit;
 impl ObjType for Commit {
-    const VALUE: usize = 1;
+    const VALUE: usize = 2;
 }

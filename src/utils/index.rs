@@ -2,6 +2,7 @@ use std::path::{PathBuf,Path};
 use std::fs::{File, OpenOptions};
 use std::io::{Write, BufWriter, Read, BufReader, BufRead};
 use byteorder::{ReadBytesExt, BigEndian};
+use sha1::{Sha1, Digest};
 #[derive(Debug)]
 pub struct IndexEntry {
     pub mode: u32,          
@@ -41,6 +42,10 @@ impl Index {
             .truncate(true)
             .open(path)?;
         let mut writer = BufWriter::new(file);
+
+        writer.write_all(b"DIRC")?;
+        writer.write_all(&2u32.to_be_bytes())?;
+        writer.write_all(&(self.entries.len() as u32).to_be_bytes())?;//header = signature + version + number of entries
     
         for entry in &self.entries {
             writer.write_all(&entry.mode.to_be_bytes())?; 
@@ -60,8 +65,26 @@ impl Index {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
         let mut index = Index::new();
+
+        let mut signature = [0u8; 4];
+        reader.read_exact(&mut signature)?;
+        if &signature != b"DIRC" {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid index file signature",
+            ));
+        }
+        let version = reader.read_u32::<BigEndian>()?;
+        if version != 2 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Unsupported index file version",
+            ));
+        }
+        let num_entries = reader.read_u32::<BigEndian>()?;
     
-        while let Ok(mode) = reader.read_u32::<BigEndian>() {
+        for i in 0..num_entries {
+            let mode = reader.read_u32::<BigEndian>()?;
             let mut hash = [0u8; 20];
             reader.read_exact(&mut hash)?;
     

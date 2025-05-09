@@ -36,6 +36,7 @@ where P: AsRef<Path>
         .and_then(decompress)
         .and_then(
         |bytes|Ok(String::from_utf8(bytes)?))
+
 }
 
 
@@ -53,7 +54,10 @@ where T: IntoIterator<Item=u8>
 pub fn compress_file<P>(path: &P) -> Result<Vec<u8>>
 where P: AsRef<Path>
 {
+    println!("compress_file : {}", path.as_ref().display());
+
     let bytes = read_file_as_bytes(path)?;
+    println!("{}, {}", bytes.len(), path.as_ref().display());
     compress(bytes)
 }
 

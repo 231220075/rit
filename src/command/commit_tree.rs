@@ -73,7 +73,7 @@ impl SubCommand for CommitTree {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let commit_content = self.build_commit_content();
 
-        let commit_hash = write_object::<Commit>(gitdir?, commit_content.into_bytes())?;
+        let commit_hash = write_object::<Commit>(gitdir?.join("objects"), commit_content.into_bytes())?;
 
         println!("{}", commit_hash);
 
