@@ -52,15 +52,13 @@ impl WriteTree {
 }
 impl SubCommand for WriteTree {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
-        //let index_path = self.gitdir.join("index");
         let mut gitdir = gitdir?;
         let index_path =gitdir.clone().join("index");
-        //let index_path = Path::new(".git").join("index");
         let mut index = Index::new();
         let mut index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand(index_path.to_str().unwrap().to_string())
         })?;
-        println!("index len = {}", index.entries.len());
+        
         let tree_content = self.build_tree_content(&index)?;
         let tree_hash = hash_object::<Tree>(tree_content.clone())?;
         //let mut objpath = self.gitdir.join("objects");
@@ -68,9 +66,9 @@ impl SubCommand for WriteTree {
         objpath.push(&tree_hash[0..2]);
         objpath.push(&tree_hash[2..]);
         std::fs::create_dir_all(objpath.parent().unwrap())?;
-        println!("tree_content len= {}", tree_content.len());
+        
         let compressed = compress_object::<Tree>(tree_content)?;
-        println!("compressed len= {}", compressed.len());
+        
         std::fs::write(objpath, compressed)?;
         println!("{}", tree_hash);
         Ok(0)

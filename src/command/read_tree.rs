@@ -40,16 +40,14 @@ impl SubCommand for ReadTree {
         index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand("Failed to read index file".to_string())
         })?;
-        println!("index len = {}", index.entries.len());
-        for entry in &index.entries {
-            println!("mode: {}, hash: {}, name: {}", entry.mode, entry.hash, entry.name);
-        }
+        // for entry in &index.entries {
+        //     println!("mode: {}, hash: {}, name: {}", entry.mode, entry.hash, entry.name);
+        // }
         let mode = 0o040000;
         let hash = self.tree_hash.clone();
         let name = self.prefix.clone();
         let entry = IndexEntry::new(mode, hash, name);
         index.add_entry(entry);
-        println!("index len = {}", index.entries.len());
         index.write_to_file(&index_path).map_err(|_| {
             GitError::InvalidCommand("Failed to write index file".to_string())
         })?;
