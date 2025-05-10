@@ -9,10 +9,7 @@ use flate2::{
 use crate::{
     utils::{
         fs::read_file_as_bytes,
-        objtype::{
-            ObjType,
-            OBJ_META,
-        },
+        objtype::ObjType,
     },
     GitError,
     Result,
@@ -63,6 +60,6 @@ where P: AsRef<Path>
 
 pub fn compress_object<T: ObjType>(bytes: Vec<u8>) -> Result<Vec<u8>>
 {
-    let meta = format!("{} {}\0", OBJ_META[T::VALUE], bytes.len()).into_bytes().into_iter();
+    let meta = format!("{} {}\0", T::VALUE, bytes.len()).into_bytes().into_iter();
     compress(meta.chain(bytes))
 }

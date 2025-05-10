@@ -37,8 +37,8 @@ impl WriteTree {
             let mode = format!("{:o}", entry.mode);
             temp.extend_from_slice(mode.as_bytes());
             temp.push(b' ');
-            temp.extend_from_slice(&entry.name.as_bytes());
-            temp.push('\0' as u8);
+            temp.extend_from_slice(entry.name.as_bytes());
+            temp.push(b'\0');
             let hash_bytes = hex::decode(&entry.hash).map_err(|_| {
                 GitError::InvalidCommand(format!("Invalid hash format: {}", entry.hash))
             })?;
@@ -58,7 +58,7 @@ impl SubCommand for WriteTree {
         let mut index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand(index_path.to_str().unwrap().to_string())
         })?;
-        
+
         let tree_content = self.build_tree_content(&index)?;
         let tree_hash = hash_object::<Tree>(tree_content.clone())?;
         //let mut objpath = self.gitdir.join("objects");
@@ -66,9 +66,8 @@ impl SubCommand for WriteTree {
         objpath.push(&tree_hash[0..2]);
         objpath.push(&tree_hash[2..]);
         std::fs::create_dir_all(objpath.parent().unwrap())?;
-        
+
         let compressed = compress_object::<Tree>(tree_content)?;
-        
         std::fs::write(objpath, compressed)?;
         println!("{}", tree_hash);
         Ok(0)

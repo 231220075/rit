@@ -26,7 +26,7 @@ pub struct CatFile {
     #[arg(short = 't', group = "option", help = "show object type (one of 'blob', 'tree', 'commit', 'tag', ...)")]
     show_type: bool,
 
-    #[arg(required = true, value_parser = obj_to_pathbuf::<PathBuf>)]
+    #[arg(required = true, value_parser = obj_to_pathbuf)]
     objpath: PathBuf,
 }
 
@@ -48,14 +48,13 @@ impl SubCommand for CatFile {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let mut gitdir = gitdir?;
         gitdir.push(&self.objpath);
-        println!("{}", gitdir.display());
         if !gitdir.exists()
         {
             if self.check_exist {
-                return Ok(if gitdir.exists() { 0 } else { 1 });
+                Ok(if gitdir.exists() { 0 } else { 1 })
             }
             else {
-                return Err(GitError::new_file_notfound(format!("{} 不存在", gitdir.to_str().unwrap())));
+                Err(GitError::new_file_notfound(format!("{} 不存在", gitdir.to_str().unwrap())))
             }
         }
         else if self.print {

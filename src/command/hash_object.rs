@@ -43,7 +43,7 @@ impl HashObject {
     }
 
     pub fn hash(&self, bytes: Vec<u8>) -> Result<String> {
-        Ok(hash_object::<Blob>(bytes)?)
+        hash_object::<Blob>(bytes)
     }
 }
 
@@ -61,10 +61,6 @@ impl SubCommand for HashObject {
         }
         else {
 
-            /*  dummy implementation!! should mkdir first  */
-            gitdir.push("objects");
-
-            /*  debug  */
             println!("write to {}", gitdir.clone().display());
             write_object::<Blob>(gitdir, bytes)?;
             Ok(0)

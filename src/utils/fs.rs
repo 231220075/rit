@@ -13,15 +13,12 @@ use crate::{
 use super::{
     hash::hash_object,
     zlib::compress_object,
-    objtype::{
-        ObjType,
-        OBJ_META,
-    },
+    objtype::ObjType,
 };
 
 
 /*  check the whether s exists in git's objects directory  */
-pub fn obj_to_pathbuf<T>(s: &str) -> std::result::Result<PathBuf, String> {
+pub fn obj_to_pathbuf(s: &str) -> std::result::Result<PathBuf, String> {
     if s.len() != 40 {
         Err(format!("{} 长度不等于40，实际长度: {}", s, s.len()))
     }
@@ -73,11 +70,10 @@ pub fn get_git_dir() -> Result<PathBuf> {
         ".git")
 }
 
-pub fn write_object<T: ObjType>(gitdir: PathBuf, content: Vec<u8>) -> Result<String> {
+pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result<String> {
     let commit_hash = hash_object::<T>(content.clone())?;
 
-    let mut gitdir = gitdir.clone();
-    gitdir.extend([&commit_hash[0..2], &commit_hash[2..]].into_iter());
+    gitdir.extend(["objects", &commit_hash[0..2], &commit_hash[2..]]);
 
     std::fs::create_dir_all(gitdir.parent().unwrap());
     std::fs::write(

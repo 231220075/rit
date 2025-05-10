@@ -73,7 +73,7 @@ impl SubCommand for CommitTree {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let commit_content = self.build_commit_content();
 
-        let commit_hash = write_object::<Commit>(gitdir?.join("objects"), commit_content.into_bytes())?;
+        let commit_hash = write_object::<Commit>(gitdir?, commit_content.into_bytes())?;
 
         println!("{}", commit_hash);
 
@@ -117,40 +117,35 @@ mod tests {
     }
 
     #[test]
-fn test_write_commit_object() {
-    use crate::utils::{
-        fs::write_object,
-        objtype::Commit,
-    };
-    let temp_dir = setup_test_git_dir();
-    println!("{:?}", temp_dir);
-    let git_dir = temp_dir.path().join(".git");
+    fn test_write_commit_object() {
+        use crate::utils::{
+            fs::write_object,
+            objtype::Commit,
+        };
+        let temp_dir = setup_test_git_dir();
+        println!("{:?}", temp_dir);
+        let git_dir = temp_dir.path().join(".git");
 
-    // 设置当前工作目录
-    std::env::set_current_dir(&temp_dir).unwrap();
+        let commit_tree = CommitTree {
+            tree_hash: "d8329fc1cc938780ffdd9f94e0d364e0ea74f579".to_string(),
+            message: "Initial commit".to_string(),
+            pcommit: None,
+        };
 
-    let commit_tree = CommitTree {
-        tree_hash: "d8329fc1cc938780ffdd9f94e0d364e0ea74f579".to_string(),
-        message: "Initial commit".to_string(),
-        pcommit: None,
-    };
+        let content = commit_tree.build_commit_content();
+        let commit_hash = write_object::<Commit>(git_dir.clone(), content.into_bytes()).unwrap();
+        let mut input = String::new();
 
-    let content = commit_tree.build_commit_content();
-    let commit_hash = write_object::<Commit>(git_dir.join("objects"), content.into_bytes()).unwrap();
-    let mut input = String::new();
+        let object_path = git_dir
+            .join("objects")
+            .join(&commit_hash[0..2])
+            .join(&commit_hash[2..]);
 
-    println!("请输入一些内容：");
+        println!("Object path: {:?}", object_path); // 调试输出
 
-    let object_path = git_dir
-        .join("objects")
-        .join(&commit_hash[0..2])
-        .join(&commit_hash[2..]);
+        assert!(object_path.exists());
 
-    println!("Object path: {:?}", object_path); // 调试输出
-
-    assert!(object_path.exists());
-
-    let compressed_data = fs::read(object_path).unwrap();
-    assert!(!compressed_data.is_empty());
-}
+        let compressed_data = fs::read(object_path).unwrap();
+        assert!(!compressed_data.is_empty());
+    }
 }
