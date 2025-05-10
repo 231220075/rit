@@ -39,22 +39,39 @@ impl WriteTree {
             else{
                 tree_content.extend_from_slice("blob ".as_bytes());
             }
+<<<<<<< HEAD
 
             tree_content.push(b' ');
             tree_content.extend_from_slice(entry.hash.as_bytes());
             tree_content.push(b'\t');
             tree_content.extend_from_slice(entry.name.as_bytes());
             tree_content.push(b'\n');
+=======
+            
+            tree_content.push(b' ');
+            tree_content.extend_from_slice(&entry.hash.as_bytes());
+            tree_content.push('\t' as u8);
+            tree_content.extend_from_slice(entry.name.as_bytes());
+            tree_content.push('\n' as u8);
+>>>>>>> main
         }
         Ok(tree_content)
     }
 }
 impl SubCommand for WriteTree {
+<<<<<<< HEAD
     fn run(&self, _gitdir: Result<PathBuf>) -> Result<i32> {
         //let index_path = self.gitdir.join("index");
         let index_path = Path::new(".git").join("index");
         let index = Index::new();
         let index = index.read_from_file(&index_path).map_err(|_| {
+=======
+    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        //let index_path = self.gitdir.join("index");
+        let index_path = Path::new(".git").join("index");
+        let mut index = Index::new();
+        let mut index = index.read_from_file(&index_path).map_err(|_| {
+>>>>>>> main
             GitError::InvalidCommand("Failed to read index file".to_string())
         })?;
         println!("index len = {}", index.entries.len());

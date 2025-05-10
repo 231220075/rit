@@ -27,11 +27,9 @@ impl Add {
     fn parse_paths(arg: &str) -> result::Result<PathBuf, String> {
         let path = PathBuf::from(arg);
         if path.exists() {
-            println!("exists {}", path.display());
             Ok(path)
         }
         else {
-            println!("not ccurr {}", path.display());
             Err(format!("{} not found", arg))
         }
     }

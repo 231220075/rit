@@ -25,11 +25,9 @@ impl Rm {
     fn parse_path(arg: &str) -> result::Result<PathBuf, String> {
         let path = PathBuf::from(arg);
         if path.exists() {
-            println!("Ok = {}", path.display());
             Ok(path)
         }
         else {
-            println!("Err = {}", arg);
             Err(format!("{} not found", arg))
         }
     }

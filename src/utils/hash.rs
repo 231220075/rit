@@ -10,10 +10,7 @@ use sha1::{Sha1, Digest};
 use crate::{
     utils::{
         fs::read_file_as_bytes,
-        objtype::{
-            ObjType,
-            OBJ_META,
-        },
+        objtype::ObjType,
     },
     GitError,
     Result,
@@ -41,6 +38,6 @@ where T: AsRef<Path>
 
 pub fn hash_object<T: ObjType>(bytes: Vec<u8>) -> Result<String>
 {
-    let meta = format!("{} {}\0", OBJ_META[T::VALUE], bytes.len()).into_bytes().into_iter();
+    let meta = format!("{} {}\0", T::VALUE, bytes.len()).into_bytes().into_iter();
     Ok(sha_hash(meta.chain(bytes)))
 }

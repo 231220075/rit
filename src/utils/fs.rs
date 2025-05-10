@@ -13,10 +13,7 @@ use crate::{
 use super::{
     hash::hash_object,
     zlib::compress_object,
-    objtype::{
-        ObjType,
-        OBJ_META,
-    },
+    objtype::ObjType,
 };
 
 

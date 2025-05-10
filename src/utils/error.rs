@@ -51,6 +51,18 @@ impl GitError {
             Self::InvalidObject(format!("invlaid object format: {}", path))
         )
     }
+
+    pub fn new_not_in_gitrepo() -> Box<dyn Error> {
+        Box::new(
+            Self::NotInGitRepo
+        )
+    }
+
+    pub fn new_invalid_hash(hash: &str) -> Box<dyn Error> {
+        Box::new(
+            Self::InvalidHash(format!("expect hash code of length 40 but got {} of length {}", hash, hash.len()))
+        )
+    }
 }
 
 impl fmt::Display for GitError {
