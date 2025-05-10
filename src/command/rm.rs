@@ -43,7 +43,7 @@ impl Rm {
 }
 
 impl SubCommand for Rm {
-    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+    fn run(&self, _gitdir: Result<PathBuf>) -> Result<i32> {
         println!("{:?} {}", self.cached, self.paths.iter().flat_map(|x|x.to_str().map(String::from))
             .fold(String::from(""), |mut pre: String, curr: String| {
                             pre.push(' ');

@@ -1,5 +1,6 @@
 [build]
 rustflags = [
     "-A", "dead_code",
-    "-A", "unused",
+    "-A", "unused_imports",
+    "-D", "warnings",
 ]

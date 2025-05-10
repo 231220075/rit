@@ -26,8 +26,8 @@ pub struct ReadTree {
 }
 
 impl ReadTree {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        let mut read_tree = ReadTree::try_parse_from(args)?;
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+        let read_tree = ReadTree::try_parse_from(args)?;
         Ok(Box::new(read_tree))
     }
 }

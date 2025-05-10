@@ -22,8 +22,8 @@ pub struct WriteTree {
     //gitdir: PathBuf,
 }
 impl WriteTree {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        let mut write_tree = WriteTree::try_parse_from(args)?;
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+        let write_tree = WriteTree::try_parse_from(args)?;
         //write_tree.gitdir = gitdir;
         Ok(Box::new(write_tree))
     }
@@ -52,13 +52,13 @@ impl WriteTree {
 }
 impl SubCommand for WriteTree {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
-        let mut gitdir = gitdir?;
+        let gitdir = gitdir?;
         let index_path =gitdir.clone().join("index");
-        let mut index = Index::new();
-        let mut index = index.read_from_file(&index_path).map_err(|_| {
+        let index = Index::new();
+        let index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand(index_path.to_str().unwrap().to_string())
         })?;
-
+        
         let tree_content = self.build_tree_content(&index)?;
         let tree_hash = hash_object::<Tree>(tree_content.clone())?;
         //let mut objpath = self.gitdir.join("objects");
@@ -66,8 +66,9 @@ impl SubCommand for WriteTree {
         objpath.push(&tree_hash[0..2]);
         objpath.push(&tree_hash[2..]);
         std::fs::create_dir_all(objpath.parent().unwrap())?;
-
+        
         let compressed = compress_object::<Tree>(tree_content)?;
+        
         std::fs::write(objpath, compressed)?;
         println!("{}", tree_hash);
         Ok(0)

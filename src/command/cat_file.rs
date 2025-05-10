@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory};
 
 use crate::utils::{
         zlib::decompress_file,
@@ -31,14 +31,23 @@ pub struct CatFile {
 }
 
 impl CatFile {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(CatFile::try_parse_from(args)?))
     }
 
-    pub fn cat(&self, gitdir: PathBuf) -> Result<()> {
-        let mut text = decompress_file(&gitdir)?;
-        let index = text.find('\0').expect("decompress_text 实现错误，返回对象不符合");
+    pub fn cat(&self) -> Result<()> {
+        println!("{} {}", self.objpath.display(), self.objpath.exists());
+        let text = decompress_file(&self.objpath)?;
+        println!("{}", &text);
+        let index = text.find('\0').ok_or(GitError::invalid_object(&self.objpath.to_string_lossy()))?;
         print!("{}", &text[index + 1..]);
+        Ok(())
+    }
+
+    pub fn cat_type(&self) -> Result<()> {
+        let text = decompress_file(&self.objpath)?;
+        let index = text.find(' ').ok_or(GitError::invalid_object(&self.objpath.to_string_lossy()))?;
+        println!("{}", &text[..index]);
         Ok(())
     }
 }
@@ -51,23 +60,24 @@ impl SubCommand for CatFile {
         if !gitdir.exists()
         {
             if self.check_exist {
-                Ok(if gitdir.exists() { 0 } else { 1 })
+                Ok((!gitdir.exists()) as i32)
             }
             else {
-                Err(GitError::new_file_notfound(format!("{} 不存在", gitdir.to_str().unwrap())))
+                Err(GitError::file_notfound(format!("{} 不存在", gitdir.to_str().unwrap())))
             }
         }
         else if self.print {
-            self.cat(gitdir).map(|_| 0)
+            self.cat()?;
+            Ok(0)
         }
         else if self.show_type {
-            let text = decompress_file(&gitdir)?;
-            let index = text.find('\0').expect("decompress_text 实现错误，返回对象不符合");
-            println!("{}", &text[0..index]);
+            self.cat_type()?;
             Ok(0)
         }
         else {
-            return Err(GitError::new_invalid_command("cat-file".to_string()));
+            let mut cmd = CatFile::command(); // 获取底层的 Command 对象
+            let _ = cmd.print_help();     // 打印帮助信息
+            Ok(0)
         }
     }
 }

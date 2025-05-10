@@ -28,7 +28,7 @@ pub struct CommitTree {
 }
 
 impl CommitTree {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(CommitTree::try_parse_from(args)?))
     }
 
@@ -89,15 +89,12 @@ impl SubCommand for CommitTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs;
-
-    fn setup_test_git_dir() -> tempfile::TempDir {
-        let temp_dir = tempdir().unwrap();
-        let git_dir = temp_dir.path().join(".git");
-        fs::create_dir_all(git_dir.join("objects")).unwrap();
-        temp_dir
-    }
+    use crate::utils::test::{
+        shell_spawn,
+        setup_test_git_dir,
+        mktemp_in,
+    };
 
     #[test]
     fn test_build_commit_content() {
@@ -126,6 +123,9 @@ mod tests {
         println!("{:?}", temp_dir);
         let git_dir = temp_dir.path().join(".git");
 
+        // 设置当前工作目录
+        std::env::set_current_dir(&temp_dir).unwrap();
+
         let commit_tree = CommitTree {
             tree_hash: "d8329fc1cc938780ffdd9f94e0d364e0ea74f579".to_string(),
             message: "Initial commit".to_string(),
@@ -134,7 +134,6 @@ mod tests {
 
         let content = commit_tree.build_commit_content();
         let commit_hash = write_object::<Commit>(git_dir.clone(), content.into_bytes()).unwrap();
-        let mut input = String::new();
 
         let object_path = git_dir
             .join("objects")
@@ -147,5 +146,33 @@ mod tests {
 
         let compressed_data = fs::read(object_path).unwrap();
         assert!(!compressed_data.is_empty());
+    }
+
+    #[test]
+    fn test_with_git() {
+        use super::super::CatFile;
+        let temp_dir = setup_test_git_dir();
+        let temp_dir = temp_dir.path().to_str().unwrap();
+        let gitdir = PathBuf::from(temp_dir).join(".git");
+
+        let _ = mktemp_in(temp_dir);
+        let _ = mktemp_in(temp_dir);
+        let _ = shell_spawn(&["git", "-C", temp_dir, "add", ":/"]).unwrap();
+        let tree_hash = shell_spawn(&["git", "-C", temp_dir, "write-tree"]).unwrap();
+
+        let commit_tree = CommitTree::try_parse_from(&["commit-tree", &tree_hash, "-m", "test_with_git"]).unwrap();
+        let content = commit_tree.build_commit_content();
+        let commit_hash = write_object::<Commit>(gitdir.clone(), content.into_bytes()).unwrap();
+
+        println!("{}", shell_spawn(&["ls", "-Rlah", gitdir.to_str().unwrap()]).unwrap());
+
+
+        let _ = std::env::set_current_dir(temp_dir);
+        let cat_file = CatFile::try_parse_from(&["cat-file", "-p", &commit_hash]).unwrap();
+        let _ = cat_file.cat().unwrap();
+
+        let out = shell_spawn(&["git", "-C", temp_dir, "cat-file", "-p", &commit_hash]).unwrap();
+        println!("{}", out);
+        assert!(0 == 1);
     }
 }

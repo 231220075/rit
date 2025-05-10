@@ -11,7 +11,7 @@ use crate::command::{
 };
 
 
-pub fn get_args(mut raw_args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+pub fn get_args(raw_args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
     let mut raw_args = raw_args.peekable();
     let command = raw_args.peek()
         .ok_or(GitError::no_subcommand())?;
@@ -27,7 +27,7 @@ pub fn get_args(mut raw_args: impl Iterator<Item = String>) -> Result<Box<dyn Su
         "write-tree" => WriteTree::from_args(raw_args),
         "commit-tree" => CommitTree::from_args(raw_args),
         "read-tree" => ReadTree::from_args(raw_args),
-        _        => Err(GitError::invalid_command())
+        unkown        => Err(GitError::invalid_command(unkown.to_string()))
     }
 }
 
@@ -36,8 +36,8 @@ pub fn get_args(mut raw_args: impl Iterator<Item = String>) -> Result<Box<dyn Su
 mod test {
     use super::*;
 
-    fn to_strings<'a>(args: &[&str]) -> impl Iterator<Item = String> {
-        args.into_iter().map(|x|String::from(*x))
+    fn to_strings(args: &[&str]) -> impl Iterator<Item = String> {
+        args.iter().map(|&s|String::from(s))
     }
 
     #[test]
@@ -106,14 +106,14 @@ mod test {
         let command = get_args(args);
         assert!(command.is_err());
 
-        File::create("add_tmp1");
-        File::create("add_tmp2");
-        File::create("add_tmp3");
+        File::create("add_tmp1").unwrap();
+        File::create("add_tmp2").unwrap();
+        File::create("add_tmp3").unwrap();
         let args = to_strings(&["add", ".", "add_tmp1", "add_tmp2", "add_tmp3"]);
         let command = get_args(args);
-        remove_file("add_tmp1");
-        remove_file("add_tmp2");
-        remove_file("add_tmp3");
+        remove_file("add_tmp1").unwrap();
+        remove_file("add_tmp2").unwrap();
+        remove_file("add_tmp3").unwrap();
         assert!(command.is_ok());
     }
 
@@ -132,14 +132,14 @@ mod test {
         let command = get_args(args);
         assert!(command.is_err());
 
-        File::create("rm_tmp1");
-        File::create("rm_tmp2");
-        File::create("rm_tmp3");
+        File::create("rm_tmp1").unwrap();
+        File::create("rm_tmp2").unwrap();
+        File::create("rm_tmp3").unwrap();
         let args = to_strings(&["rm", ".", "rm_tmp1", "rm_tmp2", "rm_tmp3"]);
         let command = get_args(args);
         assert!(command.is_ok());
-        remove_file("rm_tmp1");
-        remove_file("rm_tmp2");
-        remove_file("rm_tmp3");
+        remove_file("rm_tmp1").unwrap();
+        remove_file("rm_tmp2").unwrap();
+        remove_file("rm_tmp3").unwrap();
     }
 }

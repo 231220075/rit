@@ -38,7 +38,7 @@ pub struct HashObject {
 }
 
 impl HashObject {
-    pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(HashObject::try_parse_from(args)?))
     }
 
@@ -53,7 +53,7 @@ impl SubCommand for HashObject {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let bytes = read_file_as_bytes(&self.filepath)?;
         let path = self.hash(bytes.clone())?;
-        let mut gitdir = gitdir?;
+        let gitdir = gitdir?;
 
         if !self.write {
             println!("{}", path);

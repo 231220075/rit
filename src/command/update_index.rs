@@ -36,9 +36,9 @@ pub struct UpdateIndex {
 }
 
 impl UpdateIndex {
-    pub fn from_args(mut args: impl Iterator<Item = String>)
+    pub fn from_args(args: impl Iterator<Item = String>)
 -> Result<Box<dyn SubCommand>>{
-        let mut update_index = UpdateIndex::try_parse_from(args)?;
+        let update_index = UpdateIndex::try_parse_from(args)?;
         //update_index.gitdir = gitdir;
         Ok(Box::new(update_index))
     }

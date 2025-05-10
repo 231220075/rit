@@ -83,7 +83,7 @@ impl Index {
         }
         let num_entries = reader.read_u32::<BigEndian>()?;
     
-        for i in 0..num_entries {
+        for _ in 0..num_entries {
             let mode = reader.read_u32::<BigEndian>()?;
             let mut hash = [0u8; 20];
             reader.read_exact(&mut hash)?;
