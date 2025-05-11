@@ -53,3 +53,30 @@ impl SubCommand for ReadTree {
         Ok(0)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::utils::test::{
+        shell_spawn,
+        setup_test_git_dir,
+        mktemp_in,
+    };
+
+    #[test]
+    fn test_simple() {
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+        let file2 = mktemp_in(&temp).unwrap();
+        let file2_str = file2.to_str().unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "update-index", "--add", &file1_str, &file2_str]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "write-tree", "--add", &file1_str, &file2_str]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "rm", "--cached", ":/"]).unwrap();
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_path_str, "read-tree", "--add", &file1_str, &file2_str]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "ls-files", "--stage"]).unwrap();
+    }
+
+}

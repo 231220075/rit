@@ -28,7 +28,7 @@ pub struct UpdateIndex {
     cacheinfo: Option<Vec<String>>,
 
     #[arg(help = "Path to the file")]
-    name: Option<String>, 
+    name: Option<String>,
 
     //#[arg(skip)]
     //gitdir: PathBuf,
@@ -247,9 +247,52 @@ mod tests {
         let _ = shell_spawn(&["git", "-C", gitdir, "read-tree", &tree_commit]).unwrap();
 
         let out = shell_spawn(&["git", "-C", gitdir, "ls-files", "--stage"]).unwrap();
-        assert!(out.contains(file1.to_str().unwrap()));
-        assert!(out.contains(file2.to_str().unwrap()));
-        assert!(out.contains(file3.to_str().unwrap()));
+        assert!(out.contains(file1.strip_prefix(temp.path()).unwrap().to_str().unwrap()));
+        assert!(out.contains(file2.strip_prefix(temp.path()).unwrap().to_str().unwrap()));
+        assert!(out.contains(file3.strip_prefix(temp.path()).unwrap().to_str().unwrap()));
     }
 
+    #[test]
+    fn test_with_two_add() {
+        let temp = setup_test_git_dir();
+        let temp_dir = temp.path().to_str().unwrap();
+
+        let file1 = mktemp_in(temp_dir).unwrap();
+        let file1_path = file1.to_str().unwrap();
+        let file2 = mktemp_in(temp_dir).unwrap();
+        let file2_path = file2.to_str().unwrap();
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file1_path, file2_path]).unwrap();
+
+        let out = shell_spawn(&["git", "-C", temp_dir, "ls-files", "--stage"]).unwrap();
+        assert!(out.contains(file1_path.strip_prefix(temp_dir).unwrap()) && out.contains(file2_path.strip_prefix(temp_dir).unwrap()));
+        assert_eq!(out.split("\n").count(), 2);
+    }
+
+    #[test]
+    fn test_with_multi_add() {
+        let temp = setup_test_git_dir();
+        let temp_dir = temp.path().to_str().unwrap();
+
+        let files = (1..100).map(|_| mktemp_in(temp_dir).unwrap())
+            .map(|path| path.to_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+
+        let mut cmd: Vec<&str> = vec!["cargo", "run", "--", "-C", temp_dir, "update-index", "--add"];
+        cmd.extend(files.iter().map(|x|x.as_str()));
+
+        let _ = shell_spawn(&cmd).unwrap();
+
+        let out = shell_spawn(&["git", "-C", temp_dir, "ls-files", "--stage"]).unwrap();
+        assert_eq!(out.split("\n").count(), 99);
+    }
+
+    #[test]
+    fn test_empty() {
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let out = shell_spawn(&["cargo", "run", "--", "-C", temp_path_str, "update-index", "--add", temp_path_str]).unwrap_err();
+        assert!(out.contains("Is a directory"));
+    }
 }

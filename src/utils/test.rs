@@ -31,7 +31,7 @@ pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
             "Command '{}' failed with exit code: {:?}, output: {}",
             command_list.iter().join(" "),
             output.status.code(),
-            String::from_utf8_lossy(&output.stderr).into_owned() + &String::from_utf8_lossy(&output.stdout).into_owned()
+            String::from_utf8_lossy(&output.stderr).into_owned() + &String::from_utf8_lossy(&output.stdout)
         ))
     }
     else {
