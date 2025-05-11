@@ -8,6 +8,7 @@ use crate::utils::{
     fs::{
         read_file_as_bytes,
         get_git_dir,
+        write_object,
     },
     hash::hash_object,
     index::{Index, IndexEntry},
@@ -46,8 +47,9 @@ impl UpdateIndex {
 
 impl SubCommand for UpdateIndex {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
-        let mut index_path = gitdir?;
-        index_path.push("index");
+        let gitdir = gitdir?;
+        let index_path = gitdir.join("index");
+        //index_path.push("index");
         let mut index = Index::new();
 
         if index_path.exists() {
@@ -74,7 +76,8 @@ impl SubCommand for UpdateIndex {
                     return Err(Box::new(GitError::FileNotFound(name.clone())));
                 }
                 let bytes = read_file_as_bytes(&file_path)?;
-                let hash = hash_object::<Blob>(bytes)?;
+                //let hash = hash_object::<Blob>(bytes)?;
+                let hash = write_object::<Blob>(gitdir.clone(), bytes)?;
                 let mode = 0o100644;
                 let entry = IndexEntry::new(mode, hash, name.clone());
                 index.add_entry(entry);
@@ -218,12 +221,11 @@ mod tests {
         let file1 = mktemp_in(temp_dir).unwrap();
         let file2 = mktemp_in(temp_dir).unwrap();
 
-        let _ = shell_spawn(&["cargo", "run", "--", "-C", "temp_dir", "update-index", "--add", file1.to_str().unwrap()]);
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file1.to_str().unwrap()]);
         let out = shell_spawn(&["git", "-C", gitdir.to_str().unwrap(), "ls-files", "--stage"]).unwrap();
-        println!("{}", out);
         assert!(out.contains(file1.to_str().unwrap()));
 
-        let _ = shell_spawn(&["cargo", "run", "--", "-C", "temp_dir", "update-index", "--add", file2.to_str().unwrap()]);
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file2.to_str().unwrap()]);
         let out = shell_spawn(&["git", "-C", gitdir.to_str().unwrap(), "ls-files", "--stage"]).unwrap();
         assert!(out.contains(file2.to_str().unwrap()));
     }
@@ -236,20 +238,45 @@ mod tests {
         let gitdir = gitdir.to_str().unwrap();
 
         let file1 = mktemp_in(temp_dir).unwrap();
+        let rel_file1 = std::path::Path::new(&file1)
+            .strip_prefix(temp_dir)
+            .unwrap()
+            .to_str()
+            .unwrap();
+
         let file2 = mktemp_in(temp_dir).unwrap();
+        let rel_file2 = std::path::Path::new(&file2)
+            .strip_prefix(temp_dir)
+            .unwrap()
+            .to_str()
+            .unwrap();
 
-        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file1.to_str().unwrap()]).unwrap();
-        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file2.to_str().unwrap()]).unwrap();
-
+        //let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file1.to_str().unwrap()]).unwrap();
+        //let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file2.to_str().unwrap()]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_dir, "update-index", "--add", file1.to_str().unwrap()]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_dir, "update-index", "--add", file2.to_str().unwrap()]).unwrap();
         let file3 = mktemp_in(temp.path().join("dir")).unwrap();
-        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file3.to_str().unwrap()]).unwrap();
-        let tree_commit = shell_spawn(&["git", "-C", gitdir, "write-tree"]).unwrap();
-        let _ = shell_spawn(&["git", "-C", gitdir, "read-tree", &tree_commit]).unwrap();
+        let rel_file3 = std::path::Path::new(&file3)
+            .strip_prefix(temp_dir)
+            .unwrap()
+            .to_str()
+            .unwrap();
+        //let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file3.to_str().unwrap()]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_dir, "update-index", "--add", file3.to_str().unwrap()]).unwrap();
+        let tree_commit = shell_spawn(&["git", "-C", temp_dir, "write-tree"]).unwrap();
+        let tree_commit = tree_commit.trim();
+        println!("tree_commit: {}", tree_commit);
+        println!("gitdir: {}", gitdir);
+        println!("temp_dir: {}", temp_dir);
+        let index_dump = shell_spawn(&["git", "-C", temp_dir, "cat-file", "-p", tree_commit]).unwrap();
+        println!(".git/index hexdump:\n{}", index_dump);
+        let _ = shell_spawn(&["git", "-C", temp_dir, "read-tree", "--prefix=apk", &tree_commit]).unwrap();
 
-        let out = shell_spawn(&["git", "-C", gitdir, "ls-files", "--stage"]).unwrap();
-        assert!(out.contains(file1.to_str().unwrap()));
-        assert!(out.contains(file2.to_str().unwrap()));
-        assert!(out.contains(file3.to_str().unwrap()));
+        let out = shell_spawn(&["git", "-C", temp_dir, "ls-files", "--stage"]).unwrap();
+        println!("ls-files --stage:\n{}", out);
+        assert!(out.contains(rel_file1));
+        assert!(out.contains(rel_file2));
+        assert!(out.contains(rel_file3));
     }
 
 }
