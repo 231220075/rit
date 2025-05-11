@@ -1,6 +1,5 @@
 use std::path::{PathBuf,Path};
 use clap::{Parser, Subcommand};
-use crate::cli::command;
 use crate::{
     GitError,
     Result,
@@ -112,14 +111,12 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
     use std::fs;
+    use crate::utils::test::{
+        shell_spawn,
+        setup_test_git_dir,
+        mktemp_in,
+    };
 
-    /// 设置测试环境，创建临时 `.git/index` 文件夹
-    fn setup_test_git_dir() -> tempfile::TempDir {
-        let temp_dir = tempdir().unwrap();
-        let git_dir = temp_dir.path().join(".git");
-        fs::create_dir_all(&git_dir).unwrap();
-        temp_dir
-    }
 
     #[test]
     fn test_update_index_with_cacheinfo() {
@@ -211,4 +208,48 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_with_simple_add() {
+        let temp = setup_test_git_dir();
+        let temp_dir = temp.path().to_str().unwrap();
+        let gitdir = temp.path().join(".git");
+
+        let file1 = mktemp_in(temp_dir).unwrap();
+        let file2 = mktemp_in(temp_dir).unwrap();
+
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", "temp_dir", "update-index", "--add", file1.to_str().unwrap()]);
+        let out = shell_spawn(&["git", "-C", gitdir.to_str().unwrap(), "ls-files", "--stage"]).unwrap();
+        println!("{}", out);
+        assert!(out.contains(file1.to_str().unwrap()));
+
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", "temp_dir", "update-index", "--add", file2.to_str().unwrap()]);
+        let out = shell_spawn(&["git", "-C", gitdir.to_str().unwrap(), "ls-files", "--stage"]).unwrap();
+        assert!(out.contains(file2.to_str().unwrap()));
+    }
+
+    #[test]
+    fn test_with_tree_add() {
+        let temp = setup_test_git_dir();
+        let temp_dir = temp.path().to_str().unwrap();
+        let gitdir = temp.path().join(".git");
+        let gitdir = gitdir.to_str().unwrap();
+
+        let file1 = mktemp_in(temp_dir).unwrap();
+        let file2 = mktemp_in(temp_dir).unwrap();
+
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file1.to_str().unwrap()]).unwrap();
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file2.to_str().unwrap()]).unwrap();
+
+        let file3 = mktemp_in(temp.path().join("dir")).unwrap();
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file3.to_str().unwrap()]).unwrap();
+        let tree_commit = shell_spawn(&["git", "-C", gitdir, "write-tree"]).unwrap();
+        let _ = shell_spawn(&["git", "-C", gitdir, "read-tree", &tree_commit]).unwrap();
+
+        let out = shell_spawn(&["git", "-C", gitdir, "ls-files", "--stage"]).unwrap();
+        assert!(out.contains(file1.to_str().unwrap()));
+        assert!(out.contains(file2.to_str().unwrap()));
+        assert!(out.contains(file3.to_str().unwrap()));
+    }
+
 }

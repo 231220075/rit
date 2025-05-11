@@ -29,9 +29,9 @@ pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
     if !output.status.success() {
         Err(format!(
             "Command '{}' failed with exit code: {:?}, output: {}",
-            command_list.into_iter().join(" "),
+            command_list.iter().join(" "),
             output.status.code(),
-            String::from_utf8(output.stderr).unwrap() + & String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8_lossy(&output.stderr).into_owned() + &String::from_utf8_lossy(&output.stdout).into_owned()
         ))
     }
     else {
@@ -42,9 +42,9 @@ pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
 
 pub fn setup_test_git_dir() -> tempfile::TempDir {
     let temp_dir = tempdir().unwrap();
-    let git_dir = temp_dir.path().join(".git");
-    fs::create_dir_all(git_dir.join("objects")).unwrap();
     let _ = shell_spawn(&["git", "-C", temp_dir.path().to_str().unwrap(), "init"]).unwrap();
+    let project_root = env!("CARGO_MANIFEST_DIR");
+    std::env::set_current_dir(project_root).unwrap();
     temp_dir
 }
 
@@ -54,6 +54,7 @@ where T: AsRef<Path>
 {
     // 指定目录路径
     let dir_path = dir;
+    std::fs::create_dir_all(&dir_path)?;
 
     // 使用 Builder 创建临时文件
     let temp_file = Builder::new()

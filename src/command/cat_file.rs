@@ -35,17 +35,15 @@ impl CatFile {
         Ok(Box::new(CatFile::try_parse_from(args)?))
     }
 
-    pub fn cat(&self) -> Result<()> {
-        println!("{} {}", self.objpath.display(), self.objpath.exists());
-        let text = decompress_file(&self.objpath)?;
-        println!("{}", &text);
+    pub fn cat(&self, path: PathBuf) -> Result<()> {
+        let text = decompress_file(&path)?;
         let index = text.find('\0').ok_or(GitError::invalid_object(&self.objpath.to_string_lossy()))?;
         print!("{}", &text[index + 1..]);
         Ok(())
     }
 
-    pub fn cat_type(&self) -> Result<()> {
-        let text = decompress_file(&self.objpath)?;
+    pub fn cat_type(&self, path: PathBuf) -> Result<()> {
+        let text = decompress_file(&path)?;
         let index = text.find(' ').ok_or(GitError::invalid_object(&self.objpath.to_string_lossy()))?;
         println!("{}", &text[..index]);
         Ok(())
@@ -55,6 +53,7 @@ impl CatFile {
 
 impl SubCommand for CatFile {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+        println!("{:?}", self.objpath);
         let mut gitdir = gitdir?;
         gitdir.push(&self.objpath);
         if !gitdir.exists()
@@ -67,11 +66,11 @@ impl SubCommand for CatFile {
             }
         }
         else if self.print {
-            self.cat()?;
+            self.cat(gitdir)?;
             Ok(0)
         }
         else if self.show_type {
-            self.cat_type()?;
+            self.cat_type(gitdir)?;
             Ok(0)
         }
         else {

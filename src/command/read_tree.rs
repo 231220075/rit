@@ -1,6 +1,5 @@
 use std::path::{PathBuf,Path};
 use clap::{Parser, Subcommand};
-use crate::cli::command;
 use crate::utils::index;
 use crate::utils::zlib::compress_object;
 use crate::{

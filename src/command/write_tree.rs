@@ -1,6 +1,5 @@
 use std::path::{PathBuf,Path};
 use clap::{Parser, Subcommand};
-use crate::cli::command;
 use crate::{
     GitError,
     Result,

@@ -1,18 +1,57 @@
 use itertools::Update;
 
-use crate::command::write_tree::WriteTree;
+use std::path::PathBuf;
+use clap::{Parser, Subcommand, CommandFactory, ValueHint};
+
 use crate::{
+    utils::fs::{
+        get_git_dir,
+        search_git_dir,
+        to_pathbuf,
+    },
+    command::{
+        Init, Add, Rm, Commit,
+        CatFile, SubCommand, HashObject,
+        UpdateIndex, CommitTree, ReadTree, WriteTree,
+    },
     GitError,
     Result,
 };
-use crate::command::{
-    Init, Add, Rm, Commit,
-    CatFile, SubCommand, HashObject, update_index::UpdateIndex, commit_tree::CommitTree, read_tree::ReadTree,
-};
 
 
-pub fn get_args(raw_args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-    let mut raw_args = raw_args.peekable();
+#[derive(Parser, Debug)]
+#[command(name = "git", about = "git commandline")]
+pub struct Git {
+
+    #[arg(short = 'C', value_hint = ValueHint::DirPath, help = "Run as if git was started in <path> instead of the current working directory.")]
+    change_dir: Option<PathBuf>,
+
+    #[arg(required = true, allow_hyphen_values = true)]
+    subcommands: Vec<String>,
+}
+
+
+impl Git {
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Self> {
+        Ok(Self::try_parse_from(args)?)
+    }
+
+    pub fn execute(&mut self) -> Result<i32> {
+        get_args(self.subcommands.clone().into_iter())
+            .and_then(|cmd| {
+                if self.change_dir.is_some() {
+                    println!("hello, {:?}", self.change_dir);
+                    cmd.run(search_git_dir(self.change_dir.take().unwrap()))
+                }
+                else {
+                    cmd.run(get_git_dir())
+                }
+            })
+    }
+}
+
+pub fn get_args(raw_args: impl Iterator<Item=String>) -> Result<Box<dyn SubCommand>> {
+    let mut raw_args = raw_args.into_iter().peekable();
     let command = raw_args.peek()
         .ok_or(GitError::no_subcommand())?;
 
@@ -30,6 +69,7 @@ pub fn get_args(raw_args: impl Iterator<Item = String>) -> Result<Box<dyn SubCom
         unkown        => Err(GitError::invalid_command(unkown.to_string()))
     }
 }
+
 
 
 #[cfg(test)]

@@ -24,15 +24,14 @@ pub fn obj_to_pathbuf(s: &str) -> std::result::Result<PathBuf, String> {
     }
     else {
         let (first, second) = s.split_at(2);
-        if let Ok(mut git_path) = get_git_dir() {
-            git_path.push("objects");
-            git_path.extend([first, second].iter());
-            Ok(git_path)
-        }
-        else {
-            Err("not find git repo".to_string())
-        }
+        let mut path = PathBuf::new();
+        path.extend(["objects", first, second]);
+        Ok(path)
     }
+}
+
+pub fn to_pathbuf(slice: &str) -> std::result::Result<PathBuf, String> {
+    Ok(PathBuf::from(slice))
 }
 
 pub fn read_file_as_bytes<T>(file_path: &T) -> Result<Vec<u8>>
@@ -52,6 +51,7 @@ where T: AsRef<Path>
 
 fn search_dir(mut path: PathBuf, target: &str) -> Result<PathBuf>
 {
+    println!("path {}", path.display());
     path.push(target);
     if path.exists() && path.is_dir() {
         Ok(path)
@@ -65,9 +65,13 @@ fn search_dir(mut path: PathBuf, target: &str) -> Result<PathBuf>
 }
 
 pub fn get_git_dir() -> Result<PathBuf> {
-    search_dir(
-        current_dir().unwrap(),
-        ".git")
+    search_git_dir(current_dir().unwrap())
+}
+
+pub fn search_git_dir<T>(path: T) -> Result<PathBuf>
+where T: AsRef<Path>
+{
+    search_dir(PathBuf::from(path.as_ref()), ".git")
 }
 
 pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result<String> {

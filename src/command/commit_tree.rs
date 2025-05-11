@@ -154,6 +154,7 @@ mod tests {
         let temp_dir = setup_test_git_dir();
         let temp_dir = temp_dir.path().to_str().unwrap();
         let gitdir = PathBuf::from(temp_dir).join(".git");
+        let _ = std::env::set_current_dir(temp_dir);
 
         let _ = mktemp_in(temp_dir);
         let _ = mktemp_in(temp_dir);
@@ -162,17 +163,11 @@ mod tests {
 
         let commit_tree = CommitTree::try_parse_from(&["commit-tree", &tree_hash, "-m", "test_with_git"]).unwrap();
         let content = commit_tree.build_commit_content();
-        let commit_hash = write_object::<Commit>(gitdir.clone(), content.into_bytes()).unwrap();
+        let commit_hash = write_object::<Commit>(gitdir.clone(), content.clone().into_bytes()).unwrap();
 
-        println!("{}", shell_spawn(&["ls", "-Rlah", gitdir.to_str().unwrap()]).unwrap());
-
-
-        let _ = std::env::set_current_dir(temp_dir);
-        let cat_file = CatFile::try_parse_from(&["cat-file", "-p", &commit_hash]).unwrap();
-        let _ = cat_file.cat().unwrap();
 
         let out = shell_spawn(&["git", "-C", temp_dir, "cat-file", "-p", &commit_hash]).unwrap();
+        assert_eq!(content, out);
         println!("{}", out);
-        assert!(0 == 1);
     }
 }

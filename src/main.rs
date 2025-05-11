@@ -15,8 +15,7 @@ fn main() {
      *  let args = Args::get_from_cli();
     */
 
-    let result = args::get_args(env::args().skip(1))
-                    .and_then(cli::command::git_execute);
+    let result = args::Git::from_args(env::args()).and_then(|mut g| g.execute());
     std::process::exit(match result {
         Ok(retval) => retval,
         Err(err) => {

@@ -29,6 +29,10 @@ pub use rm::Rm;
 pub use commit::Commit;
 pub use cat_file::CatFile;
 pub use hash_object::HashObject;
+pub use update_index::UpdateIndex;
+pub use read_tree::ReadTree;
+pub use write_tree::WriteTree;
+pub use commit_tree::CommitTree;
 
 
 #[allow(unused)]
