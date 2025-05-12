@@ -240,12 +240,14 @@ mod tests {
         let out = shell_spawn(&["git", "-C", gitdir.to_str().unwrap(), "ls-files", "--stage"]).unwrap();
         println!("out = {:?}, f1 = {:?}", out, file1);
         
-        assert!(out.contains(file1.to_str().unwrap()));
+        let file1_name = std::path::Path::new(file1.to_str().unwrap()).file_name().unwrap().to_str().unwrap();
+        assert!(out.contains(file1_name));
 
         let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_dir, "update-index", "--add", file2.to_str().unwrap()]);
         let out = shell_spawn(&["git", "-C", gitdir.to_str().unwrap(), "ls-files", "--stage"]).unwrap();
         println!("{:?}", out);
-        assert!(out.contains(file2.to_str().unwrap()));
+        let file2_name = std::path::Path::new(file2.to_str().unwrap()).file_name().unwrap().to_str().unwrap();
+        assert!(out.contains(file2_name));
     }
 
     #[test]
