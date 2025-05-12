@@ -86,7 +86,7 @@ impl SubCommand for UpdateIndex {
                 
                 let gitdir_parent = gitdir.parent().ok_or(GitError::FileNotFound(name.clone()))?;
                 //println!("{},{}", gitdir_parent.display(), file_path.display());
-                let path = file_path.strip_prefix(&gitdir_parent)?;
+                let path = file_path.strip_prefix(gitdir_parent)?;
 
                 let bytes = read_file_as_bytes(&file_path)?;
                 //let hash = hash_object::<Blob>(bytes)?;
