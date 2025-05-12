@@ -10,6 +10,7 @@ pub enum GitError {
     InvalidCommand(String),
     InvalidHash(String),
     InvalidObject(String),
+    InvaildPathEncoding(String),
     FileNotFound(String),
     NoSubCommand,
     NotInGitRepo,
@@ -63,6 +64,12 @@ impl GitError {
             Self::InvalidHash(format!("expect hash code of length 40 but got {} of length {}", hash, hash.len()))
         )
     }
+
+    pub fn invaild_path_encoding(path: &str) -> Box<dyn Error>{
+        Box::new(
+            Self::InvaildPathEncoding(format!("invlaid path encoding: {}", path))
+        )
+    }
 }
 
 impl fmt::Display for GitError {
@@ -74,6 +81,7 @@ impl fmt::Display for GitError {
             GitError::NoSubCommand => write!(f, "no sub command"),
             GitError::NotInGitRepo => write!(f, "not in a git repository"),
             GitError::InvalidObject(msg) => write!(f, "{}", msg),
+            GitError::InvaildPathEncoding(path) => write!(f, "invalid path encoding: {}", path),
         }
     }
 }
