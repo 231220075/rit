@@ -8,6 +8,7 @@ use nom::{
     number::complete::be_u32,
     IResult,
 };
+use std::iter::repeat_n;
 
 #[derive(Debug)]
 pub struct IndexEntry {
@@ -99,7 +100,7 @@ impl Index {
         // 计算对齐
         let entry_len = 63 + entry.name.len(); // 62字节固定+name
         let pad = (8 - (entry_len % 8)) % 8;
-        buffer.extend(std::iter::repeat(0).take(pad));
+        buffer.extend(std::iter::repeat_n(0, pad));
     }
     let mut hasher = Sha1::new();
     hasher.update(&buffer);
