@@ -16,7 +16,13 @@ use crate::utils::{
         write_object,
     },
     hash::hash_object,
-    objtype::Blob,
+    objtype::{
+        ObjType,
+        Obj,
+    },
+    blob::Blob,
+    tree::Tree,
+    commit::Commit,
 };
 
 use crate::{
@@ -55,15 +61,41 @@ impl SubCommand for HashObject {
         let path = self.hash(bytes.clone())?;
         let gitdir = gitdir?;
 
-        if !self.write {
-            println!("{}", path);
-            Ok(0)
-        }
-        else {
-
-            println!("write to {}", gitdir.clone().display());
+        if self.write {
             write_object::<Blob>(gitdir, bytes)?;
             Ok(0)
         }
+        else {
+            println!("{}", path);
+            Ok(0)
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::utils::{
+        test::{
+            shell_spawn,
+            setup_test_git_dir,
+            mktemp_in,
+        },
+    };
+
+    #[test]
+    fn test_blob() {
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+
+        let origin = shell_spawn(&["git", "-C", temp_path_str, "hash-object", file1_str]).unwrap();
+        let real = shell_spawn(&["cargo", "run", "--quiet", "--", "-C", temp_path_str, "hash-object", file1_str]).unwrap();
+
+        assert_eq!(origin, real);
     }
 }

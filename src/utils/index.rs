@@ -17,15 +17,15 @@ pub struct IndexEntry {
 }
 
 impl IndexEntry {
-    
-        pub fn new(mode: u32, hash: String, name: String) -> Self {
-            match mode {
-                0o100644 | 0o100755 | 0o120000 | 0o040000 => (),
-                _ => panic!("Invalid file mode: {:o}", mode),
-            }
-            IndexEntry { mode, hash, name }
+
+    pub fn new(mode: u32, hash: String, name: String) -> Self {
+        match mode {
+            0o100644 | 0o100755 | 0o120000 | 0o040000 => (),
+            _ => panic!("Invalid file mode: {:o}", mode),
         }
-    
+        IndexEntry { mode, hash, name }
+    }
+
 }
 
 pub struct Index {
@@ -55,15 +55,15 @@ impl Index {
         // writer.write_all(b"DIRC")?;
         // writer.write_all(&2u32.to_be_bytes())?;
         // writer.write_all(&(self.entries.len() as u32).to_be_bytes())?;//header = signature + version + number of entries
-    
+
         // for entry in &self.entries {
         //     writer.write_all(&entry.mode.to_be_bytes())?; 
-    
+
         //     let hash_bytes = hex::decode(&entry.hash).map_err(|_| {
         //         std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid hash format")
         //     })?;
         //     writer.write_all(&hash_bytes)?; 
-    
+
         //     writer.write_all(entry.name.as_bytes())?; 
         //     writer.write_all(&[0])?; 
         // }
@@ -72,43 +72,43 @@ impl Index {
         buffer.extend_from_slice(&2u32.to_be_bytes());
         buffer.extend_from_slice(&(self.entries.len() as u32).to_be_bytes());
 
-    for entry in &self.entries {
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime_nsec
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // mtime
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // mtime_nsec
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // dev
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // ino
-        buffer.extend_from_slice(&entry.mode.to_be_bytes());
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // uid
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // gid
-        buffer.extend_from_slice(&0u32.to_be_bytes()); // file size
+        for entry in &self.entries {
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime_nsec
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // mtime
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // mtime_nsec
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // dev
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // ino
+            buffer.extend_from_slice(&entry.mode.to_be_bytes());
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // uid
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // gid
+            buffer.extend_from_slice(&0u32.to_be_bytes()); // file size
 
-        let hash_bytes = hex::decode(&entry.hash).map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid hash format")
-        })?;
-        buffer.extend_from_slice(&hash_bytes);
-        let name_bytes = entry.name.as_bytes();
-        let name_len = name_bytes.len();
-        let stage: u16 = 0;
-        let flags: u16 = ((stage & 0x3) << 12) | ((name_len as u16) & 0x0FFF);
-        buffer.extend_from_slice(&flags.to_be_bytes());
-        buffer.extend_from_slice(entry.name.as_bytes());
-        buffer.push(0);
+            let hash_bytes = hex::decode(&entry.hash).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid hash format")
+            })?;
+            buffer.extend_from_slice(&hash_bytes);
+            let name_bytes = entry.name.as_bytes();
+            let name_len = name_bytes.len();
+            let stage: u16 = 0;
+            let flags: u16 = ((stage & 0x3) << 12) | ((name_len as u16) & 0x0FFF);
+            buffer.extend_from_slice(&flags.to_be_bytes());
+            buffer.extend_from_slice(entry.name.as_bytes());
+            buffer.push(0);
 
-        // 计算对齐
-        let entry_len = 63 + entry.name.len(); // 62字节固定+name
-        let pad = (8 - (entry_len % 8)) % 8;
-        buffer.extend(std::iter::repeat(0).take(pad));
-    }
-    let mut hasher = Sha1::new();
-    hasher.update(&buffer);
-    let checksum = hasher.finalize();
-    buffer.extend_from_slice(&checksum);
+            // 计算对齐
+            let entry_len = 63 + entry.name.len(); // 62字节固定+name
+            let pad = (8 - (entry_len % 8)) % 8;
+            buffer.extend(std::iter::repeat(0).take(pad));
+        }
+        let mut hasher = Sha1::new();
+        hasher.update(&buffer);
+        let checksum = hasher.finalize();
+        buffer.extend_from_slice(&checksum);
 
-    writer.write_all(&buffer)?;
-    writer.flush()?;
-    Ok(())
+        writer.write_all(&buffer)?;
+        writer.flush()?;
+        Ok(())
     }
 
     // pub fn read_from_file(&self, path: &Path) -> std::io::Result<Self> {
@@ -124,34 +124,34 @@ impl Index {
     //             "Invalid index file signature",
     //         ));
     //     }
-        // let version = reader.read_u32::<BigEndian>()?;
-        // if version != 2 {
-        //     return Err(std::io::Error::new(
-        //         std::io::ErrorKind::InvalidData,
-        //         "Unsupported index file version",
-        //     ));
-        // }
-        // let num_entries = reader.read_u32::<BigEndian>()?;
-    
-        // for _ in 0..num_entries {
-        //     let mode = reader.read_u32::<BigEndian>()?;
-        //     let mut hash = [0u8; 20];
-        //     reader.read_exact(&mut hash)?;
-    
-        //     let mut name = Vec::new();
-        //     reader.read_until(0, &mut name)?;
-        //     if name.is_empty() || name.last() != Some(&0) {
-        //         return Err(std::io::Error::new(
-        //             std::io::ErrorKind::InvalidData,
-        //             "Invalid name format in index file",
+    // let version = reader.read_u32::<BigEndian>()?;
+    // if version != 2 {
+    //     return Err(std::io::Error::new(
+    //         std::io::ErrorKind::InvalidData,
+    //         "Unsupported index file version",
+    //     ));
+    // }
+    // let num_entries = reader.read_u32::<BigEndian>()?;
+
+    // for _ in 0..num_entries {
+    //     let mode = reader.read_u32::<BigEndian>()?;
+    //     let mut hash = [0u8; 20];
+    //     reader.read_exact(&mut hash)?;
+
+    //     let mut name = Vec::new();
+    //     reader.read_until(0, &mut name)?;
+    //     if name.is_empty() || name.last() != Some(&0) {
+    //         return Err(std::io::Error::new(
+    //             std::io::ErrorKind::InvalidData,
+    //             "Invalid name format in index file",
     //             ));
     //         }
     //         name.pop(); 
-    
+
     //         let name_str = String::from_utf8(name).map_err(|_| {
     //             std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8 in name")
     //         })?;
-    
+
     //         index.add_entry(IndexEntry::new(
     //             mode,
     //             hex::encode(hash),
@@ -203,9 +203,9 @@ impl Index {
         let input = &input[pad..];
 
         Ok((input, IndexEntry::new(
-            mode,
-            hex::encode(hash),
-            String::from_utf8(name.to_vec()).unwrap(),
+                    mode,
+                    hex::encode(hash),
+                    String::from_utf8(name.to_vec()).unwrap(),
         )))
     }
 

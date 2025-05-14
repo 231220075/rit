@@ -12,7 +12,7 @@ use crate::utils::{
     },
     hash::hash_object,
     index::{Index, IndexEntry},
-    objtype::Blob,
+    blob::Blob,
 };
 use super::SubCommand;
 

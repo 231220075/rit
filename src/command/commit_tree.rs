@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use crate::utils::{
     zlib::compress_object,
     hash::hash_object,
-    objtype::Commit,
+    commit::Commit,
     fs::write_object,
 };
 use crate::{
@@ -117,7 +117,7 @@ mod tests {
     fn test_write_commit_object() {
         use crate::utils::{
             fs::write_object,
-            objtype::Commit,
+            commit::Commit,
         };
         let temp_dir = setup_test_git_dir();
         println!("{:?}", temp_dir);

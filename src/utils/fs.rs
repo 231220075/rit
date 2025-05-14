@@ -51,7 +51,6 @@ where T: AsRef<Path>
 
 fn search_dir(mut path: PathBuf, target: &str) -> Result<PathBuf>
 {
-    println!("path {}", path.display());
     path.push(target);
     if path.exists() && path.is_dir() {
         Ok(path)
@@ -79,7 +78,6 @@ pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result
 
     gitdir.extend(["objects", &commit_hash[0..2], &commit_hash[2..]]);
 
-    println!("gitdir = {}", gitdir.display());
     std::fs::create_dir_all(gitdir.parent().unwrap())?;
     std::fs::write(
         &gitdir,

@@ -25,12 +25,18 @@ pub fn decompress(data: Vec<u8>) -> Result<Vec<u8>>
     Ok(buffer)
 }
 
-
-pub fn decompress_file<P>(input_path: &P) -> Result<String>
+pub fn decompress_file_as_bytes<P>(input_path: &P) -> Result<Vec<u8>>
 where P: AsRef<Path>
 {
     read_file_as_bytes(input_path)
         .and_then(decompress)
+
+}
+
+pub fn decompress_file<P>(input_path: &P) -> Result<String>
+where P: AsRef<Path>
+{
+    decompress_file_as_bytes(input_path)
         .and_then(
         |bytes|Ok(String::from_utf8(bytes)?))
 
@@ -51,10 +57,10 @@ where T: IntoIterator<Item=u8>
 pub fn compress_file<P>(path: &P) -> Result<Vec<u8>>
 where P: AsRef<Path>
 {
-    println!("compress_file : {}", path.as_ref().display());
+    // println!("compress_file : {}", path.as_ref().display());
 
     let bytes = read_file_as_bytes(path)?;
-    println!("{}, {}", bytes.len(), path.as_ref().display());
+    // println!("{}, {}", bytes.len(), path.as_ref().display());
     compress(bytes)
 }
 

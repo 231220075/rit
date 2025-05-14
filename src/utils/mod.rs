@@ -4,4 +4,7 @@ pub mod hash;
 pub mod zlib;
 pub mod index;
 pub mod objtype;
+pub mod blob;
+pub mod tree;
+pub mod commit;
 pub mod test;

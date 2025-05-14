@@ -60,7 +60,7 @@ where T: AsRef<Path>
     let temp_file = Builder::new()
         .prefix("temp_") // 可选：为文件名添加前缀
         .suffix(".txt")  // 可选：为文件名添加后缀
-        .rand_bytes(8)   // 随机字节数（默认是 6 字节）
+        .rand_bytes(10)   // 随机字节数（默认是 6 字节）
         .tempfile_in(dir_path)?; // 在指定目录中创建临时文件
 
     // 获取临时文件的路径

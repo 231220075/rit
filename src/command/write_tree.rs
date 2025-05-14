@@ -9,7 +9,7 @@ use crate::utils::{
     hash::hash_object,
     zlib::compress_object,
     index::{Index, IndexEntry},
-    objtype::Tree,
+    tree::Tree,
 };
 use super::SubCommand;
 use hex;

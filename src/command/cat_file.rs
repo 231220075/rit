@@ -1,16 +1,33 @@
 use std::path::PathBuf;
+use std::convert::Into;
 use clap::{Parser, Subcommand, CommandFactory};
 
 use crate::utils::{
-        zlib::decompress_file,
-        fs::obj_to_pathbuf,
-    };
+    zlib::{
+        decompress_file,
+        decompress_file_as_bytes,
+    },
+    fs::obj_to_pathbuf,
+    objtype::{
+        ObjType,
+        Obj,
+    },
+    blob::Blob,
+    tree::Tree,
+    commit::Commit,
+};
 
 use crate::{
     GitError,
     Result,
 };
 use super::SubCommand;
+
+use nom::{
+    bytes::complete::{tag, take, take_until},
+    number::complete::be_u32,
+    IResult,
+};
 
 
 #[derive(Parser, Debug)]
@@ -36,16 +53,14 @@ impl CatFile {
     }
 
     pub fn cat(&self, path: PathBuf) -> Result<()> {
-        let text = decompress_file(&path)?;
-        let index = text.find('\0').ok_or(GitError::invalid_object(&self.objpath.to_string_lossy()))?;
-        print!("{}", &text[index + 1..]);
+        let obj: Obj = decompress_file_as_bytes(&path)?.try_into()?;
+        print!("{}", obj);
         Ok(())
     }
 
     pub fn cat_type(&self, path: PathBuf) -> Result<()> {
-        let text = decompress_file(&path)?;
-        let index = text.find(' ').ok_or(GitError::invalid_object(&self.objpath.to_string_lossy()))?;
-        println!("{}", &text[..index]);
+        let obj: Obj = decompress_file_as_bytes(&path)?.try_into()?;
+        println!("{}", obj.get_type());
         Ok(())
     }
 }
@@ -53,7 +68,6 @@ impl CatFile {
 
 impl SubCommand for CatFile {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
-        println!("{:?}", self.objpath);
         let mut gitdir = gitdir?;
         gitdir.push(&self.objpath);
         if !gitdir.exists()
@@ -81,3 +95,61 @@ impl SubCommand for CatFile {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::utils::{
+        test::{
+            shell_spawn,
+            setup_test_git_dir,
+            mktemp_in,
+        },
+    };
+
+    #[test]
+    fn test_blob() {
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+
+        let _ = shell_spawn(&["ls", "-lahR", temp_path_str]).unwrap();
+
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "add", &file1_str]).unwrap();
+        let hash = shell_spawn(&["git", "-C", temp_path_str, "hash-object", file1_str]).unwrap();
+        let hash = hash.strip_suffix("\n").unwrap();
+
+        let origin = shell_spawn(&["git", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        let real = shell_spawn(&["cargo", "run", "--quiet", "--", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        assert_eq!(origin, real);
+    }
+
+    #[test]
+    fn test_tree() {
+
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+        let file2 = mktemp_in(&temp).unwrap();
+        let file2_str = file2.to_str().unwrap();
+
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "update-index", "--add", &file1_str, &file2_str]).unwrap();
+        let hash = shell_spawn(&["git", "-C", temp_path_str, "write-tree"]).unwrap();
+        let hash = hash.strip_suffix("\n").unwrap();
+
+        let origin = shell_spawn(&["git", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        println!("origin = {}", origin);
+        let real = shell_spawn(&["cargo", "run", "--quiet", "--", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        assert_eq!(origin, real);
+    }
+
+    #[test]
+    fn test_commit() {
+        eprintln!("commit object还没写");
+    }
+}

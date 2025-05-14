@@ -40,7 +40,6 @@ impl Git {
         get_args(self.subcommands.clone().into_iter())
             .and_then(|cmd| {
                 if self.change_dir.is_some() {
-                    println!("hello, {:?}", self.change_dir);
                     cmd.run(search_git_dir(self.change_dir.take().unwrap()))
                 }
                 else {
@@ -66,7 +65,7 @@ pub fn get_args(raw_args: impl Iterator<Item=String>) -> Result<Box<dyn SubComma
         "write-tree" => WriteTree::from_args(raw_args),
         "commit-tree" => CommitTree::from_args(raw_args),
         "read-tree" => ReadTree::from_args(raw_args),
-        unkown        => Err(GitError::invalid_command(unkown.to_string()))
+        unkown => Err(GitError::invalid_command(unkown.to_string()))
     }
 }
 
