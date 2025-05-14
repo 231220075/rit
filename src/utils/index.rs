@@ -8,12 +8,13 @@ use nom::{
     number::complete::be_u32,
     IResult,
 };
+use std::iter::repeat_n;
 
 #[derive(Debug)]
 pub struct IndexEntry {
-    pub mode: u32,          
-    pub hash: String,       
-    pub name: String,      
+    pub mode: u32,
+    pub hash: String,
+    pub name: String,
 }
 
 impl IndexEntry {
@@ -96,15 +97,15 @@ impl Index {
             buffer.extend_from_slice(entry.name.as_bytes());
             buffer.push(0);
 
-            // 计算对齐
-            let entry_len = 63 + entry.name.len(); // 62字节固定+name
-            let pad = (8 - (entry_len % 8)) % 8;
-            buffer.extend(std::iter::repeat(0).take(pad));
-        }
-        let mut hasher = Sha1::new();
-        hasher.update(&buffer);
-        let checksum = hasher.finalize();
-        buffer.extend_from_slice(&checksum);
+        // 计算对齐
+        let entry_len = 63 + entry.name.len(); // 62字节固定+name
+        let pad = (8 - (entry_len % 8)) % 8;
+        buffer.extend(std::iter::repeat_n(0, pad));
+    }
+    let mut hasher = Sha1::new();
+    hasher.update(&buffer);
+    let checksum = hasher.finalize();
+    buffer.extend_from_slice(&checksum);
 
         writer.write_all(&buffer)?;
         writer.flush()?;

@@ -73,7 +73,7 @@ impl TryFrom<&[u8]> for FileMode {
             "40000"  => Ok(FileMode::Tree),
             "160000" => Ok(FileMode::Commit),
             "120000" => Ok(FileMode::Symbolic),
-            other    => Err(GitError::invalid_filemode(format!("{}", other)))
+            other    => Err(GitError::invalid_filemode(other.to_string()))
         }
     }
 }
@@ -85,8 +85,9 @@ pub struct TreeEntry {
     path: PathBuf,  // relative to git dir
 }
 
+type EntryPrototype<'a> = (&'a[u8], &'a[u8], &'a[u8]);
 impl TreeEntry {
-    fn parse_from_bytes(bytes: &[u8]) -> IResult<&[u8], (&[u8], &[u8], &[u8])> {
+    fn parse_from_bytes(bytes: &[u8]) -> IResult<&[u8], EntryPrototype> {
         let parse_mode = terminated(take_until(" "), tag(" "));
         let parse_path = terminated(take_until("\0"), tag("\0"));
         let parse_hash = take(20usize);
@@ -124,7 +125,7 @@ impl TreeEntry {
 impl TryFrom<&[u8]> for TreeEntry {
     type Error = Box<dyn Error>;
 
-    fn try_from<'bytes>(bytes: &'bytes [u8]) -> result::Result<Self, Self::Error> {
+    fn try_from(bytes: &[u8]) -> result::Result<Self, Self::Error> {
         // [mode] space [path] 0x00 [sha-1]
 
         let (_, (modebytes, hashbytes, pathbytes)) = TreeEntry::parse_from_bytes(bytes)
@@ -143,7 +144,7 @@ impl TryFrom<&[u8]> for TreeEntry {
 
 impl fmt::Display for TreeEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:06o} {} {}\t{}", self.mode as u32, self.mode.to_string(), self.hash.clone(), self.path.display())
+        write!(f, "{:06o} {} {}\t{}", self.mode as u32, self.mode, self.hash.clone(), self.path.display())
     }
 }
 
@@ -170,9 +171,9 @@ impl TryFrom<Vec<u8>> for Tree {
     }
 }
 
-impl Into<Vec<u8>> for Tree {
-    fn into(self) -> Vec<u8> {
-        self.0
+impl From<Tree> for Vec<u8> {
+    fn from(val: Tree) -> Vec<u8> {
+        val.0
             .into_iter()
             .flat_map(|x|x.into_iter())
             .collect()

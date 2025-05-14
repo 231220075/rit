@@ -38,9 +38,9 @@ impl TryFrom<Vec<u8>> for Blob {
     }
 }
 
-impl Into<Vec<u8>> for Blob {
-    fn into(self) -> Vec<u8> {
-        self.0
+impl From<Blob> for Vec<u8> {
+    fn from(val: Blob) -> Vec<u8> {
+        val.0
     }
 }
 

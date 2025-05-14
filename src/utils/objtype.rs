@@ -72,9 +72,9 @@ impl TryFrom<Vec<u8>> for Obj {
     }
 }
 
-impl Into<Vec<u8>> for Obj {
-    fn into(self) -> Vec<u8> {
-        match self {
+impl From<Obj> for Vec<u8> {
+    fn from(val: Obj) -> Vec<u8> {
+        match val {
             Obj::B(b) => b.into(),
             Obj::T(t) => t.into(),
             Obj::C(c) => c.into(),

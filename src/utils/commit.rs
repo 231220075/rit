@@ -23,8 +23,8 @@ impl TryFrom<Vec<u8>> for Commit {
     }
 }
 
-impl Into<Vec<u8>> for Commit {
-    fn into(self) -> Vec<u8> {
+impl From<Commit> for Vec<u8> {
+    fn from(_val: Commit) -> Vec<u8> {
         let a = [];
         a.into()
     }

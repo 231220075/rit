@@ -42,6 +42,13 @@ where P: AsRef<Path>
 
 }
 
+pub fn decompress_file_bytes<P>(input_path: &P) -> Result<Vec<u8>>
+where P: AsRef<Path>
+{
+    read_file_as_bytes(input_path)
+        .and_then(decompress)
+}
+
 
 pub fn compress<T>(data: T) -> Result<Vec<u8>>
 where T: IntoIterator<Item=u8>
