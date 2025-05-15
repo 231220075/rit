@@ -5,17 +5,24 @@ use std::{
         Write,
     },
     fs,
+    fs::{
+        read_dir,
+        copy,
+    },
     path::{
         Path,
         PathBuf
     },
     process::Command
 };
-use tempfile::{
+pub use tempfile::{
     tempdir,
     Builder,
 };
 use itertools::Itertools;
+use crate::utils::{
+    error,
+};
 
 pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
     let command = command_list[0];
@@ -36,7 +43,7 @@ pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
     }
     else {
         // 将 stdout 转换为 String
-        Ok(String::from_utf8(output.stderr).unwrap() + &String::from_utf8(output.stdout).unwrap())
+        Ok(String::from_utf8_lossy(&output.stderr).into_owned() + &String::from_utf8_lossy(&output.stdout))
     }
 }
 
@@ -67,4 +74,46 @@ where T: AsRef<Path>
     let file_path = temp_file.keep();
 
     Ok(file_path.unwrap().1)
+}
+
+
+pub fn cp_dir<T>(from: T, to: T) -> Result<String, String>
+where
+    T: AsRef<Path>
+{
+    let mut from = from.as_ref().to_path_buf();
+    from.push(".");
+    let _ = shell_spawn(&["cp", "-a", from.to_str().unwrap(), to.as_ref().to_str().unwrap()]).unwrap();
+    Ok("".into())
+}
+
+pub type Args<'a> = &'a[&'a str];
+pub type ArgsList<'a> = &'a[(Args<'a>, bool)];
+pub fn cmd_seq<'a>(args_list: ArgsList<'a>) -> impl FnMut(Args<'a>) -> Result<Vec<String>, String>
+{
+    move |command: Args| {
+        let command = command.iter().collect::<Vec<_>>();
+        args_list.iter()
+            .map(|(x, is_print)| {
+                let full_cmd = command
+                .clone()
+                .into_iter().copied()
+                .chain(x.iter().copied())
+                .collect::<Vec<_>>();
+                (full_cmd, is_print)
+            })
+            .map(|(cmd, is_print)| {
+                let output = shell_spawn(cmd.as_slice());
+                if *is_print {
+                    println!("{:?}", output);
+                }
+                output
+            })
+            .collect::<Result<Vec<String>, _>>()
+    }
+}
+
+pub fn run_both<'a>(cmds: ArgsList<'a>, git: Args, cargo: Args) -> Result<(Vec<String>, Vec<String>), String> {
+    let mut opers = cmd_seq(cmds);
+    Ok((opers(git)?, opers(cargo)?))
 }
