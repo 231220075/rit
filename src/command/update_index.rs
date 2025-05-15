@@ -76,14 +76,14 @@ impl SubCommand for UpdateIndex {
                 )));
             }
             for name in &self.names {
-                let current_dir = std::env::current_dir()?;
-                let file_path = current_dir.join(name);
+                let project_dir = gitdir.parent().unwrap();
+                let file_path = project_dir.join(name);
                 if !file_path.exists() {
                     return Err(Box::new(GitError::FileNotFound(name.clone())));
                 }
 
                 //let abs_path = PathBuf::from(name).canonicalize()?;
-                
+
                 let gitdir_parent = gitdir.parent().ok_or(GitError::FileNotFound(name.clone()))?;
                 //println!("{},{}", gitdir_parent.display(), file_path.display());
                 let path = file_path.strip_prefix(gitdir_parent)?;
