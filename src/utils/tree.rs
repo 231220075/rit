@@ -80,9 +80,9 @@ impl TryFrom<&[u8]> for FileMode {
 
 #[derive(Clone)]
 pub struct TreeEntry {
-    mode: FileMode, //
-    hash: String,   // 40 length
-    path: PathBuf,  // relative to git dir
+    pub mode: FileMode, //
+    pub hash: String,   // 40 length
+    pub path: PathBuf,  // relative to git dir
 }
 
 type EntryPrototype<'a> = (&'a[u8], &'a[u8], &'a[u8]);
@@ -153,7 +153,7 @@ impl fmt::Display for TreeEntry {
     }
 }
 
-pub struct Tree(Vec<TreeEntry>);
+pub struct Tree(pub Vec<TreeEntry>);
 
 impl TryFrom<Vec<u8>> for Tree {
     type Error = Box<dyn Error>;
