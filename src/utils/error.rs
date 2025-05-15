@@ -13,7 +13,7 @@ pub enum GitError {
     InvalidFileMode(String),
     InvalidEntry(String),
     InvalidTree(String),
-    InvalidObject(String),
+    InvalidCommit(String),
     InvaildPathEncoding(String),
     FileNotFound(String),
     InvalidObj(String),
@@ -84,9 +84,9 @@ impl GitError {
         )
     }
 
-    pub fn invalid_object(path: &str) -> Box<dyn Error> {
+    pub fn invalid_commit(path: &str) -> Box<dyn Error> {
         Box::new(
-            Self::InvalidObject(format!("invlaid object format: {}", path))
+            Self::InvalidCommit(format!("invlaid commit: {}", path))
         )
     }
 
@@ -105,7 +105,7 @@ impl fmt::Display for GitError {
             GitError::InvalidEntry(msg) => write!(f, "Invalid Entry {}", msg),
             GitError::InvalidTree(msg) => write!(f, "Invalid Tree {}", msg),
             GitError::InvalidObj(msg) => write!(f, "Invalid Obj {}", msg),
-            GitError::InvalidObject(msg) => write!(f, "{}", msg),
+            GitError::InvalidCommit(msg) => write!(f, "{}", msg),
             GitError::InvaildPathEncoding(path) => write!(f, "invalid path encoding: {}", path),
         }
     }

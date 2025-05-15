@@ -10,6 +10,7 @@ use crate::utils::{
     fs::obj_to_pathbuf,
     objtype::{
         ObjType,
+        parse_meta,
         Obj,
     },
     blob::Blob,
@@ -59,8 +60,9 @@ impl CatFile {
     }
 
     pub fn cat_type(&self, path: PathBuf) -> Result<()> {
-        let obj: Obj = decompress_file_as_bytes(&path)?.try_into()?;
-        println!("{}", obj.get_type());
+        let bytes = decompress_file_as_bytes(&path)?;
+        let (_, (t, _)) = parse_meta(&bytes).map_err(GitError::invalid_obj)?;
+        println!("{}", String::from_utf8(t.to_vec()).map_err(GitError::invalid_obj)?);
         Ok(())
     }
 }
@@ -150,6 +152,22 @@ mod test {
 
     #[test]
     fn test_commit() {
-        eprintln!("commit object还没写");
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+        let file2 = mktemp_in(&temp).unwrap();
+        let file2_str = file2.to_str().unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "add", &file1_str, &file2_str]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "commit", "-m", "commit-message"]).unwrap();
+        let hash = shell_spawn(&["git", "-C", temp_path_str, "rev-parse", "HEAD"]).unwrap();
+        let hash = hash.strip_suffix("\n").unwrap();
+
+        let origin = shell_spawn(&["git", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        let real = shell_spawn(&["cargo", "run", "--quiet", "--", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        println!("{}", real);
+        assert_eq!(origin, real);
     }
 }

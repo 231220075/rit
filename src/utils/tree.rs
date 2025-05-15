@@ -86,6 +86,21 @@ pub struct TreeEntry {
 }
 
 type EntryPrototype<'a> = (&'a[u8], &'a[u8], &'a[u8]);
+impl<'a> TryFrom<EntryPrototype<'a>> for TreeEntry {
+    type Error = Box<dyn Error>;
+
+    fn try_from(enp: EntryPrototype) -> result::Result<Self, Self::Error> {
+        let mode = enp.0.try_into()?;
+        let path = PathBuf::from(&String::from_utf8(enp.1.to_vec())?);
+        let hash = encode(enp.2);
+        Ok(TreeEntry {
+            mode,
+            hash,
+            path,
+        })
+    }
+}
+
 impl TreeEntry {
     fn parse_from_bytes(bytes: &[u8]) -> IResult<&[u8], EntryPrototype> {
         let parse_mode = terminated(take_until(" "), tag(" "));
@@ -109,16 +124,6 @@ impl TreeEntry {
             .chain(path)
     }
 
-    fn from_fields(mode: &[u8], path: &[u8], hash: &[u8]) -> Result<Self> {
-        let mode = mode.try_into()?;
-        let hash = encode(hash);
-        let path = PathBuf::from(&String::from_utf8(path.to_vec())?);
-        Ok(TreeEntry {
-            mode,
-            hash,
-            path,
-        })
-    }
 }
 
 
@@ -161,10 +166,7 @@ impl TryFrom<Vec<u8>> for Tree {
             .map_err(GitError::invalid_entry)?;
         let entrys = entrys_str
             .into_iter()
-            .map(|(mode_bytes, path_bytes, hash_bytes)| {
-                    TreeEntry::from_fields(mode_bytes, path_bytes, hash_bytes)
-                }
-            )
+            .map(|prototype| prototype.try_into())
             .collect::<Result<Vec<TreeEntry>>>()?;
 
         Ok(Tree(entrys))
