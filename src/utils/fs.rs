@@ -14,6 +14,11 @@ use super::{
     hash::hash_object,
     zlib::compress_object,
     objtype::ObjType,
+    index:: {
+        IndexEntry,
+        Index,
+    },
+    tree::FileMode,
 };
 
 
@@ -79,9 +84,26 @@ pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result
     gitdir.extend(["objects", &commit_hash[0..2], &commit_hash[2..]]);
 
     std::fs::create_dir_all(gitdir.parent().unwrap())?;
+    println!("wirte to {}", gitdir.display());
     std::fs::write(
         &gitdir,
     compress_object::<T>(content)?)?;
 
     Ok(commit_hash)
 }
+
+pub fn add_object<T>(gitdir: PathBuf, path: impl AsRef<Path>) -> Result<IndexEntry>
+where
+    T: ObjType,
+{
+    let project_root = gitdir.parent().expect("find git implementation fail").to_path_buf();
+    let mode = T::MODE;
+    let hash = write_object::<T>(gitdir, read_file_as_bytes(&project_root.join(&path))?)?;
+    let path = String::from(path.as_ref().to_str().unwrap());
+    Ok(IndexEntry {
+        mode,
+        hash,
+        name: path,
+    })
+}
+

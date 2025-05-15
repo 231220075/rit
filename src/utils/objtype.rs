@@ -37,6 +37,7 @@ use nom::{
 
 pub trait ObjType: TryFrom<Vec<u8>> + Into<Vec<u8>> {
     const VALUE: &'static str;
+    const MODE: u32 = 0o040000;
 }
 
 pub enum Obj {

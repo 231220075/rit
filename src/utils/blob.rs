@@ -26,6 +26,7 @@ use crate::utils::{
 pub struct Blob(Vec<u8>);
 impl ObjType for Blob {
     const VALUE: &'static str = "blob";
+    const MODE: u32 = 0o100644;
 }
 
 impl TryFrom<Vec<u8>> for Blob {
