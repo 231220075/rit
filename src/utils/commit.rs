@@ -20,6 +20,7 @@ use std::{
 pub struct Commit(Vec<u8>);
 impl ObjType for Commit {
     const VALUE: &'static str = "commit";
+    const MODE: u32 = 0o160000;
 }
 
 impl TryFrom<Vec<u8>> for Commit {

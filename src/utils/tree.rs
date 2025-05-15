@@ -185,6 +185,7 @@ impl From<Tree> for Vec<u8> {
 
 impl ObjType for Tree {
     const VALUE: &'static str = "tree";
+    const MODE: u32 = 0o040000;
 }
 
 impl fmt::Display for Tree {

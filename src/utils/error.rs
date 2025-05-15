@@ -17,6 +17,7 @@ pub enum GitError {
     InvaildPathEncoding(String),
     FileNotFound(String),
     InvalidObj(String),
+    NoPermision(String),
     NoSubCommand,
     NotInGitRepo,
 }
@@ -42,6 +43,13 @@ impl GitError {
             Self::InvalidFileMode(mode_str)
         )
     }
+
+    pub fn no_permision(err: impl Error) -> Box::<dyn Error> {
+        Box::new(
+            Self::NoPermision(err.to_string())
+        )
+    }
+
     pub fn no_subcommand() -> Box::<dyn Error> {
         Box::new(
             Self::NoSubCommand
@@ -107,6 +115,7 @@ impl fmt::Display for GitError {
             GitError::InvalidObj(msg) => write!(f, "Invalid Obj {}", msg),
             GitError::InvalidCommit(msg) => write!(f, "{}", msg),
             GitError::InvaildPathEncoding(path) => write!(f, "invalid path encoding: {}", path),
+            GitError::NoPermision(msg) => write!(f, "no access permission: {}", msg),
         }
     }
 }
