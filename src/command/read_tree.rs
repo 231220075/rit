@@ -52,7 +52,7 @@ fn restore_tree_to_index(gitdir: &Path, tree_hash: &str, prefix: &str, index: &m
                 let file_path = if prefix.is_empty() {
                     entry.path.to_str().unwrap().to_string()
                 } else {
-                    format!("{}/{}", prefix, entry.path.display())
+                    format!("{}/{}", prefix.trim_end_matches('/'), entry.path.display())
                 };
                 let index_entry = IndexEntry::new(entry.mode as u32, entry.hash.clone(), file_path);
                 index.add_entry(index_entry);
@@ -78,30 +78,30 @@ impl SubCommand for ReadTree {
             return Err(Box::new(GitError::InvalidCommand("Index file does not exist".to_string())));
         }
         let mut index = Index::new();
-        index = index.read_from_file(&index_path).map_err(|_| {
-            GitError::InvalidCommand("Failed to read index file".to_string())
-        })?;
-        for entry in &index.entries {
-            println!("mode: {}, hash: {}, name: {}", entry.mode, entry.hash, entry.name);
-        }
-        let mode = 0o040000;
-        let hash = self.tree_hash.clone();
-        let name = self.prefix.clone();
-        let entry = IndexEntry::new(mode, hash, name);
-        index.add_entry(entry);
-        index.write_to_file(&index_path).map_err(|_| {
-            GitError::InvalidCommand("Failed to write index file".to_string())
-        })?;
-        Ok(0)
-
         // index = index.read_from_file(&index_path).map_err(|_| {
         //     GitError::InvalidCommand("Failed to read index file".to_string())
         // })?;
-        // restore_tree_to_index(&gitdir, &self.tree_hash, &self.prefix, &mut index)?;
+        // for entry in &index.entries {
+        //     println!("mode: {}, hash: {}, name: {}", entry.mode, entry.hash, entry.name);
+        // }
+        // let mode = 0o040000;
+        // let hash = self.tree_hash.clone();
+        // let name = self.prefix.clone();
+        // let entry = IndexEntry::new(mode, hash, name);
+        // index.add_entry(entry);
         // index.write_to_file(&index_path).map_err(|_| {
         //     GitError::InvalidCommand("Failed to write index file".to_string())
         // })?;
         // Ok(0)
+
+        index = index.read_from_file(&index_path).map_err(|_| {
+            GitError::InvalidCommand("Failed to read index file".to_string())
+        })?;
+        restore_tree_to_index(&gitdir, &self.tree_hash, &self.prefix, &mut index)?;
+        index.write_to_file(&index_path).map_err(|_| {
+            GitError::InvalidCommand("Failed to write index file".to_string())
+        })?;
+        Ok(0)
     }
 
 
