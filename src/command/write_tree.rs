@@ -48,29 +48,124 @@ impl WriteTree {
         tree_content.extend_from_slice(&temp);
         Ok(tree_content)
     }
+
+    fn build_tree_recursive(&self, gitdir: &Path, entries: &[IndexEntry], prefix: &str) -> Result<String>{
+        use std::collections::BTreeMap;
+        let mut tree_entries: BTreeMap<String, (u32, String, bool)> = BTreeMap::new();
+        let mut subdir_map: BTreeMap<String, Vec<IndexEntry>> = BTreeMap::new();
+
+        for entry in entries {
+            let rel_name = if prefix.is_empty() {
+                entry.name.as_str()
+            } else if let Some(stripped) = entry.name.strip_prefix(prefix) {
+                stripped.trim_start_matches('/')
+            } else {
+                continue;
+            };
+            if let Some((first, rest)) = rel_name.split_once('/') {
+                // 子目录
+                let _sub_prefix = if prefix.is_empty() {
+                    first.to_string()
+                } else {
+                    format!("{}/{}", prefix, first)
+                };
+                subdir_map.entry(first.to_string())
+                    .or_default()
+                    .push(IndexEntry {
+                        name: if rest.is_empty() {
+                            first.to_string()
+                        } else {
+                            format!("{}/{}", first, rest)
+                        },
+                        mode: entry.mode,
+                        hash: entry.hash.clone(),
+                    });
+            } else {
+                // 普通文件
+                tree_entries.insert(
+                    rel_name.to_string(),
+                    (entry.mode, entry.hash.clone(), false),
+                );
+            }
+        }
+        for (subdir, sub_entries) in subdir_map {
+            let sub_prefix = if prefix.is_empty() {
+                subdir.clone()
+            } else {
+                format!("{}/{}", prefix, subdir)
+            };
+            let sub_tree_hash = self.build_tree_recursive(gitdir, &sub_entries, &sub_prefix)?;
+            tree_entries.insert(
+                subdir,
+                (0o040000, sub_tree_hash, true),
+            );
+        }
+
+        let mut tree_content = Vec::new();
+        for (name, (mode, hash, is_tree)) in &tree_entries {
+            let mode_str = if *is_tree { "40000" } else { &format!("{:o}", mode) };
+            tree_content.extend_from_slice(mode_str.as_bytes());
+            tree_content.push(b' ');
+            tree_content.extend_from_slice(name.as_bytes());
+            tree_content.push(0);
+            let hash_bytes = hex::decode(hash).map_err(|_| {
+                GitError::InvalidCommand(format!("Invalid hash format: {}", hash))
+            })?;
+            tree_content.extend_from_slice(&hash_bytes);
+        }
+
+        let tree_hash = hash_object::<Tree>(tree_content.clone())?;
+        let mut objpath = gitdir.join("objects");
+        objpath.push(&tree_hash[0..2]);
+        objpath.push(&tree_hash[2..]);
+        println!("objpath: {:?}", objpath);
+        std::fs::create_dir_all(objpath.parent().unwrap())?;
+        println!("objpath: {:?}", objpath);
+        let compressed = compress_object::<Tree>(tree_content)?;
+        println!("compressed: {:?}", compressed);
+        std::fs::write(objpath, compressed)?;
+        println!("tree_hash: {}", tree_hash);
+        Ok(tree_hash)
+  
+    }
+
+
 }
 impl SubCommand for WriteTree {
-    fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+    // fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
+    //     let gitdir = gitdir?;
+    //     let index_path =gitdir.clone().join("index");
+    //     let index = Index::new();
+    //     let index = index.read_from_file(&index_path).map_err(|_| {
+    //         GitError::InvalidCommand(index_path.to_str().unwrap().to_string())
+    //     })?;
+        
+    //     let tree_content = self.build_tree_content(&index)?;
+    //     let tree_hash = hash_object::<Tree>(tree_content.clone())?;
+    //     //let mut objpath = self.gitdir.join("objects");
+    //     let mut objpath = gitdir.clone().join("objects");
+    //     objpath.push(&tree_hash[0..2]);
+    //     objpath.push(&tree_hash[2..]);
+    //     std::fs::create_dir_all(objpath.parent().unwrap())?;
+        
+    //     let compressed = compress_object::<Tree>(tree_content)?;
+        
+    //     std::fs::write(objpath, compressed)?;
+    //     println!("{}", tree_hash);
+    //     Ok(0)
+    // }
+
+   fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
-        let index_path =gitdir.clone().join("index");
+        let index_path = gitdir.clone().join("index");
         let index = Index::new();
         let index = index.read_from_file(&index_path).map_err(|_| {
             GitError::InvalidCommand(index_path.to_str().unwrap().to_string())
         })?;
-        
-        let tree_content = self.build_tree_content(&index)?;
-        let tree_hash = hash_object::<Tree>(tree_content.clone())?;
-        //let mut objpath = self.gitdir.join("objects");
-        let mut objpath = gitdir.clone().join("objects");
-        objpath.push(&tree_hash[0..2]);
-        objpath.push(&tree_hash[2..]);
-        std::fs::create_dir_all(objpath.parent().unwrap())?;
-        
-        let compressed = compress_object::<Tree>(tree_content)?;
-        
-        std::fs::write(objpath, compressed)?;
+        let tree_hash = self.build_tree_recursive(&gitdir, &index.entries, "")?;
         println!("{}", tree_hash);
         Ok(0)
     }
+
 
 }
