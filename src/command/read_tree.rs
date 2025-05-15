@@ -10,6 +10,10 @@ use crate::utils::{
     fs::read_file_as_bytes,
     hash::hash_object,
     index::{Index, IndexEntry},
+    tree::{
+        Tree,
+        FileMode,
+    },
 };
 use super::SubCommand;
 
@@ -34,26 +38,25 @@ impl ReadTree {
 fn restore_tree_to_index(gitdir: &Path, tree_hash: &str, prefix: &str, index: &mut Index) -> Result<()> {
     // 1. 读取 tree 对象内容
     let tree_bytes = read_object_from_gitdir(gitdir, tree_hash)?;
-    let entries = parse_tree_object(&tree_bytes)?;
+    let tree: Tree = tree_bytes.try_into()?;
 
-    for entry in entries {
+    for entry in tree.0 {
         match entry.mode {
-            0o40000 => {
+            FileMode::Tree => {
                 // 目录，递归
-                let sub_prefix = format!("{}/{}", prefix, entry.name);
+                let sub_prefix = format!("{}/{}", prefix, entry.path.display());
                 restore_tree_to_index(gitdir, &entry.hash, &sub_prefix, index)?;
             }
-            0o100644 | 0o100755 | 0o120000 => {
+            FileMode::Blob | FileMode::Commit | FileMode::Symbolic => {
                 // 普通文件、可执行文件、符号链接
                 let file_path = if prefix.is_empty() {
-                    entry.name.clone()
+                    entry.path.to_str().unwrap().to_string()
                 } else {
-                    format!("{}/{}", prefix, entry.name)
+                    format!("{}/{}", prefix, entry.path.display())
                 };
-                let index_entry = IndexEntry::new(entry.mode, entry.hash.clone(), file_path);
+                let index_entry = IndexEntry::new(entry.mode as u32, entry.hash.clone(), file_path);
                 index.add_entry(index_entry);
             }
-            _ => {}
         }
     }
     Ok(())
@@ -64,27 +67,6 @@ fn read_object_from_gitdir(gitdir: &Path, hash: &str) -> Result<Vec<u8>> {
     let object_path = gitdir.join("objects").join(&hash[0..2]).join(&hash[2..]);
     let decompressed = decompress_file_bytes(&object_path)?;
     Ok(decompressed)
-}
-fn parse_tree_object(tree_bytes: &[u8]) -> Result<Vec<IndexEntry>> {
-    let mut entries = Vec::new();
-
-    let header_end = tree_bytes.iter().position(|&b| b == 0).unwrap();
-    let mut offset = header_end + 1;
-    while offset < tree_bytes.len() {
-        let mode_end = tree_bytes[offset..].iter().position(|&b| b == b' ').ok_or(GitError::InvalidCommand("Invalid tree object".to_string()))?;
-        let mode = u32::from_str_radix(std::str::from_utf8(&tree_bytes[offset..offset + mode_end]).unwrap(), 8).map_err(|_| GitError::InvalidCommand("Invalid mode".to_string()))?;
-        offset += mode_end + 1;
-
-        let name_end = tree_bytes[offset..].iter().position(|&b| b == b'\0').ok_or(GitError::InvalidCommand("Invalid tree object".to_string()))?;
-        let name = std::str::from_utf8(&tree_bytes[offset..offset + name_end]).map_err(|_| GitError::InvalidCommand("Invalid name".to_string()))?.to_string();
-        offset += name_end + 1;
-
-        let hash = hex::encode(&tree_bytes[offset..offset + 20]);
-        offset += 20;
-
-        entries.push(IndexEntry::new(mode, hash, name));
-    }
-    Ok(entries)
 }
 
 impl SubCommand for ReadTree {
@@ -151,7 +133,7 @@ mod test {
         let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_path_str, "read-tree", "--prefix=apk", tree_hash]).unwrap();
         let out = shell_spawn(&["git", "-C", temp_path_str, "ls-files", "--stage"]).unwrap();
         println!("out: {}", out);
-        //assert!(out.contains("apk/"));
+        assert!(out.contains("apk/"));
     }
 
 }
