@@ -142,8 +142,9 @@ mod test {
         assert!(command.is_ok());
 
         let args = to_strings(&["add", "-n", ".no_exist_s"]);
-        let command = get_args(args);
-        assert!(command.is_err());
+        let command = get_args(args).unwrap();
+        let a = command.run(Ok(PathBuf::from("/tmp")));
+        assert!(a.is_err());
 
         File::create("add_tmp1").unwrap();
         File::create("add_tmp2").unwrap();
@@ -159,17 +160,18 @@ mod test {
 
     #[test]
     fn test_rm() {
-        let args = to_strings(&["rm", "-n", "."]);
+        let args = to_strings(&["rm", "--cached", "-n", "."]);
         let command = get_args(args);
         assert!(command.is_ok());
 
-        let args = to_strings(&["rm", "-n", "."]);
+        let args = to_strings(&["rm", "--cached", "-n", "."]);
         let command = get_args(args);
         assert!(command.is_ok());
 
-        let args = to_strings(&["rm", "-n", ".no_exist_s"]);
-        let command = get_args(args);
-        assert!(command.is_err());
+        let args = to_strings(&["rm", "--cached", "-n", ".no_exist_s"]);
+        let command = get_args(args).unwrap();
+        let a = command.run(Ok(PathBuf::from("/tmp")));
+        assert!(a.is_err());
 
         File::create("rm_tmp1").unwrap();
         File::create("rm_tmp2").unwrap();

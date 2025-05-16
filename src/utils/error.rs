@@ -18,6 +18,7 @@ pub enum GitError {
     FileNotFound(String),
     InvalidObj(String),
     NoPermision(String),
+    NotARepoFile(String),
     NoSubCommand,
     NotInGitRepo,
 }
@@ -47,6 +48,16 @@ impl GitError {
     pub fn no_permision(err: impl Error) -> Box::<dyn Error> {
         Box::new(
             Self::NoPermision(err.to_string())
+        )
+    }
+
+    pub fn not_a_repofile<P: AsRef<Path>>(file: P) -> Box::<dyn Error>
+    {
+        Box::new(
+            Self::NotARepoFile(file.as_ref()
+                .to_str()
+                .unwrap()
+                .to_string())
         )
     }
 
@@ -116,6 +127,7 @@ impl fmt::Display for GitError {
             GitError::InvalidCommit(msg) => write!(f, "{}", msg),
             GitError::InvaildPathEncoding(path) => write!(f, "invalid path encoding: {}", path),
             GitError::NoPermision(msg) => write!(f, "no access permission: {}", msg),
+            GitError::NotARepoFile(path) => write!(f, "{} not in git repo", path),
         }
     }
 }

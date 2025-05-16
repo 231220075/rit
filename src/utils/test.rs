@@ -17,6 +17,7 @@ use std::{
 };
 pub use tempfile::{
     tempdir,
+    NamedTempFile,
     Builder,
 };
 use itertools::Itertools;
@@ -59,6 +60,15 @@ pub fn setup_test_git_dir() -> tempfile::TempDir {
 pub fn mktemp_in<T>(dir: T) -> std::io::Result<PathBuf>
 where T: AsRef<Path>
 {
+    let tempfile = touch_file_in(dir)?;
+    let (_, pathbuf) = tempfile.keep()?;
+    Ok(pathbuf)
+}
+
+
+pub fn touch_file_in<T>(dir: T) -> std::io::Result<NamedTempFile>
+where T: AsRef<Path>
+{
     // 指定目录路径
     let dir_path = dir;
     std::fs::create_dir_all(&dir_path)?;
@@ -70,12 +80,8 @@ where T: AsRef<Path>
         .rand_bytes(10)   // 随机字节数（默认是 6 字节）
         .tempfile_in(dir_path)?; // 在指定目录中创建临时文件
 
-    // 获取临时文件的路径
-    let file_path = temp_file.keep();
-
-    Ok(file_path.unwrap().1)
+    Ok(temp_file)
 }
-
 
 pub fn cp_dir<T>(from: T, to: T) -> Result<String, String>
 where
