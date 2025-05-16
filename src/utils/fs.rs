@@ -84,7 +84,6 @@ pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result
     gitdir.extend(["objects", &commit_hash[0..2], &commit_hash[2..]]);
 
     std::fs::create_dir_all(gitdir.parent().unwrap())?;
-    println!("wirte to {}", gitdir.display());
     std::fs::write(
         &gitdir,
     compress_object::<T>(content)?)?;
@@ -107,3 +106,36 @@ where
     })
 }
 
+
+pub fn walk<P>(path: P) -> Result<impl IntoIterator<Item = PathBuf>>
+where
+    P: AsRef<Path>
+{
+    if path.as_ref().is_dir() {
+        path.as_ref().read_dir()?
+            .map(|x| x.map(|x|x.path()).map_err(GitError::no_permision))
+            .collect::<Result<Vec<_>>>()
+    }
+    else {
+        Ok([path.as_ref().to_path_buf()].to_vec())
+    }
+}
+
+/// assert path is child or son of dir and return path's relative path of dir
+pub fn calc_relative_path<P>(dir: P, path: P) -> Result<PathBuf>
+where P: AsRef<Path>
+{
+    let dir_path = dir.as_ref().to_path_buf();
+    let abs = dir_path.join(&path).canonicalize()?;
+    if dir.as_ref() == abs {
+        Ok(PathBuf::from("."))
+    }
+    else if dir_path.join(&abs) == abs {
+        abs.strip_prefix(dir.as_ref())
+            .map(|x|x.to_path_buf())
+            .map_err(|x|GitError::not_a_repofile(x.to_string()))
+    }
+    else {
+        Err(GitError::not_a_repofile(path.as_ref()))
+    }
+}
