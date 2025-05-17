@@ -1,6 +1,10 @@
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
-use std::result;
+use std::{
+    path::{
+        PathBuf,
+        Path
+    },
+};
 use crate::{
     GitError,
     Result,
@@ -24,6 +28,9 @@ pub struct Rm {
     #[arg(short='n', long="dry-run", help = "dry run")]
     dry_run: bool,
 
+    #[arg(short='r', long="recursive", help = "rm dir recursively")]
+    recursive: bool,
+
     #[arg(required = true, value_name="paths", num_args = 1..)]
     paths: Vec<PathBuf>,
 }
@@ -33,6 +40,39 @@ impl Rm {
         let a = Rm::try_parse_from(args)?;
         println!("{:?}", a);
         Ok(Box::new(a))
+    }
+
+    fn walks_all_path(&self, project_root: PathBuf, index: &Index) -> Result<impl IntoIterator<Item = PathBuf> + use<>> {
+        let paths = self.paths.iter()
+            .map(|path|calc_relative_path(&project_root, path))
+            .collect::<Result<Vec<_>>>()?;
+
+        let possible_dir = paths.iter().filter(|p|p.is_dir()).collect::<Vec<_>>();
+        let possible_file = paths.iter().filter(|p|p.is_file()).collect::<Vec<_>>();
+
+        if (!self.recursive) && (!possible_dir.is_empty()) {
+            Err(GitError::not_a_repofile(possible_dir[0]))
+        }
+        else if let Some(path) = possible_file
+            .iter()
+            .filter(|p| !index.entries.iter().any(|en| en.name == p.to_str().unwrap()))
+            .take(1).next()
+        {
+                    Err(GitError::not_a_repofile(path))
+        }
+        else {
+            possible_dir
+                .into_iter()
+                .cloned()
+                .map(walk)
+                .collect::<Result<Vec<_>>>()
+                .map(|x|x
+                    .into_iter()
+                    .flatten()
+                    .filter(move|x| !x.starts_with(project_root.join(".git")))
+                    .chain(possible_file.into_iter().cloned().collect::<Vec<_>>())
+                )
+        }
     }
 }
 
@@ -48,36 +88,18 @@ impl SubCommand for Rm {
         }
 
         if self.cached {
-            let paths = self.paths.iter().map(|path|calc_relative_path(project_root, path)).collect::<Result<Vec<_>>>()?;
-            let possible_file = paths.iter().filter(|p|p.is_file()).collect::<Vec<_>>();
-            let possible_dir = paths.iter().filter(|p|p.is_dir()).collect::<Vec<_>>();
-            if let Some(path) = possible_file
-                .iter()
-                .filter(|p| !index.entries.iter().any(|en| en.name == p.to_str().unwrap()))
-                .take(1).next()
-            {
-                        Err(GitError::not_a_repofile(path))
-            }
-            else {
-                possible_dir
-                    .into_iter()
-                    .map(walk)
-                    .collect::<Result<Vec<_>>>()?
-                    .into_iter()
-                    .flatten()
-                    .chain(possible_file.iter().map(|x|(**x).clone()))
-                    .for_each(|path| {
-                        if let Some((idx, _)) = index.entries
-                            .iter()
-                            .enumerate()
-                            .find(|(_, en)|en.name == path.to_str().unwrap())
-                        {
-                            index.entries.remove(idx);
-                        };
-                    });
-                index.write_to_file(&index_file)?;
-                Ok(0)
-            }
+            self.walks_all_path(project_root.to_path_buf(), &index)?.into_iter()
+            .for_each(|path| {
+                if let Some((idx, _)) = index.entries
+                    .iter()
+                    .enumerate()
+                    .find(|(_, en)|en.name == path.to_str().unwrap())
+                {
+                    index.entries.remove(idx);
+                };
+            });
+            index.write_to_file(&index_file)?;
+            Ok(0)
         }
         else {
             todo!("直接从文件系统中删除");
@@ -99,6 +121,44 @@ mod test {
         run_both,
         ArgsList,
     };
+
+    #[test]
+    fn test_rm_dir() {
+        let temp1 = setup_test_git_dir();
+        let temp_path1 = temp1.path();
+        let temp_path_str1 = temp_path1.to_str().unwrap();
+
+        let temp2 = tempdir().unwrap();
+        let temp_path2 = temp2.path();
+        let temp_path_str2 = temp_path2.to_str().unwrap();
+
+        let _ = mktemp_in(temp_path1.join("inner")).unwrap();
+        // let file1_str = file1.file_name().unwrap();
+        // let file1_str = file1_str.to_str().unwrap();
+
+        let _ = mktemp_in(temp_path1.join("inner").join("close")).unwrap();
+        // let file2_str = file2.file_name().unwrap().to_str();
+        // let file2_str = file2_str.unwrap();
+
+        let _ = cp_dir(temp_path1, temp_path2).unwrap();
+
+        let file2_path = PathBuf::from("inner/close");
+        let file1_path = PathBuf::from("inner");
+
+        let cmds: ArgsList = &[
+            (&["add", file1_path.to_str().unwrap(), file2_path.to_str().unwrap()], true),
+            (&["rm", "--cached", "-r", file1_path.to_str().unwrap(), file2_path.to_str().unwrap()], true),
+        ];
+        let git = &["git", "-C", temp_path_str1];
+        let cargo = &["cargo", "run", "--quiet", "--", "-C", temp_path_str2];
+        let _ = run_both(cmds, git, cargo).unwrap();
+
+        println!("{}", shell_spawn(&["ls", "-lahR", temp_path_str1]).unwrap());
+
+        let origin = shell_spawn(&["git", "-C", temp_path_str1, "ls-files", "--stage", "|", "sort"]).unwrap();
+        let real = shell_spawn(&["git", "-C", temp_path_str2, "ls-files", "--stage", "|", "sort"]).unwrap();
+        assert_eq!(origin, real);
+    }
 
     #[test]
     fn test_basic() {

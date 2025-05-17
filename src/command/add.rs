@@ -49,21 +49,14 @@ impl Add {
     }
 
     fn walk_path(&self, project_root: PathBuf) -> Result<Vec<PathBuf>> {
-        self.paths.clone()
-            .into_iter()
-            .map(|p|calc_relative_path(&project_root, &p))
+        self.paths.clone().into_iter()
+            .map(|p|project_root.join(p))
+            .map(walk)
+            .collect::<Result<Vec<_>>>()?.into_iter()
+            .flatten()
+            .filter(|x| !x.starts_with(project_root.join(".git")))
+            .map(|p| calc_relative_path(&project_root, &p))
             .collect::<Result<Vec<_>>>()
-            .and_then(|path_vec| {
-                path_vec.into_iter()
-                    .map(walk)
-                    .collect::<Result<Vec<_>>>()
-            })
-            .map(|iter|
-                iter
-                .into_iter()
-                .flat_map(|x|x .into_iter())
-                .collect::<Vec<_>>()
-            )
 
     }
 }
