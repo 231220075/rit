@@ -169,3 +169,53 @@ impl SubCommand for WriteTree {
 
 
 }
+
+#[cfg(test)]
+mod test {
+    use crate::utils::test::{
+        shell_spawn,
+        setup_test_git_dir,
+        mktemp_in,
+        cmd_seq,
+        tempdir,
+        cp_dir,
+        run_both,
+        ArgsList,
+    };
+
+    #[test]
+    fn test_basic() {
+
+        let temp1 = setup_test_git_dir();
+        let temp_path1 = temp1.path();
+        let temp_path_str1 = temp_path1.to_str().unwrap();
+
+        let temp2 = tempdir().unwrap();
+        let temp_path2 = temp2.path();
+        let temp_path_str2 = temp_path2.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp1).unwrap();
+        let file1_str = file1.file_name().unwrap();
+        let file1_str = file1_str.to_str().unwrap();
+
+        let file2 = mktemp_in(&temp1).unwrap();
+        let file2_str = file2.file_name().unwrap().to_str();
+        let file2_str = file2_str.unwrap();
+
+        let _ = cp_dir(temp_path1, temp_path2).unwrap();
+
+        let cmds: ArgsList = &[
+            (&["update-index", "--add", file1_str, file2_str], false),
+            (&["write-tree"], true),
+        ];
+        let git = &["git", "-C", temp_path_str1];
+        let cargo = &["cargo", "run", "--quiet", "--", "-C", temp_path_str2];
+        let (gitout, _) = run_both(cmds, git, cargo).unwrap();
+
+        let hash = gitout.iter().filter(|x|x.len() == 41).take(1).next().unwrap().strip_suffix("\n").unwrap();
+
+        let real = shell_spawn(&["git", "-C", temp_path_str1, "cat-file", "-p", &hash]).unwrap();
+        let origin = shell_spawn(&["git", "-C", temp_path_str2, "cat-file", "-p", &hash]).unwrap();
+        assert_eq!(origin, real);
+    }
+}

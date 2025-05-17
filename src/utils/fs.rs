@@ -14,6 +14,11 @@ use super::{
     hash::hash_object,
     zlib::compress_object,
     objtype::ObjType,
+    index:: {
+        IndexEntry,
+        Index,
+    },
+    tree::FileMode,
 };
 
 
@@ -84,4 +89,70 @@ pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result
     compress_object::<T>(content)?)?;
 
     Ok(commit_hash)
+}
+
+pub fn add_object<T>(gitdir: PathBuf, path: impl AsRef<Path>) -> Result<IndexEntry>
+where
+    T: ObjType,
+{
+    let project_root = gitdir.parent().expect("find git implementation fail").to_path_buf();
+    let mode = T::MODE;
+    let hash = write_object::<T>(gitdir, read_file_as_bytes(&project_root.join(&path))?)?;
+    let path = String::from(path.as_ref().to_str().unwrap());
+    Ok(IndexEntry {
+        mode,
+        hash,
+        name: path,
+    })
+}
+
+
+pub fn walk<P>(path: P) -> Result<impl IntoIterator<Item = PathBuf>>
+where
+    P: AsRef<Path>
+{
+    if path.as_ref().is_dir() {
+        let pathbufs = path.as_ref()
+            .read_dir()?
+            .map(|x| x.map(|x|x.path()) .map_err(GitError::no_permision))
+            .collect::<Result<Vec<_>>>()?;
+
+        let files = pathbufs.iter()
+            .filter(|x|x.is_file())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let iter_dirs = pathbufs.into_iter()
+            .filter(|x|x.is_dir())
+            .map(walk)
+            .collect::<Result<Vec<_>>>()
+            .map(|x|x.into_iter().flatten());
+
+        iter_dirs
+            .map(|x|x.into_iter().chain(files).collect::<Vec<_>>())
+    }
+    else {
+        Ok([path.as_ref().to_path_buf()].to_vec())
+    }
+}
+
+/// assert path is child or son of dir and return path's relative path of dir
+pub fn calc_relative_path<P, M>(dir: P, path: M) -> Result<PathBuf>
+where
+    P: AsRef<Path>,
+    M: AsRef<Path>,
+{
+    let dir_path = dir.as_ref().to_path_buf();
+    let abs = dir_path.join(path.as_ref()).canonicalize()?;
+    if dir.as_ref() == abs {
+        Ok(PathBuf::from("."))
+    }
+    else if dir_path.join(&abs) == abs {
+        abs.strip_prefix(dir.as_ref())
+            .map(|x|x.to_path_buf())
+            .map_err(|x|GitError::not_a_repofile(x.to_string()))
+    }
+    else {
+        Err(GitError::not_a_repofile(path.as_ref()))
+    }
 }
