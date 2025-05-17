@@ -118,13 +118,13 @@ impl WriteTree {
         let mut objpath = gitdir.join("objects");
         objpath.push(&tree_hash[0..2]);
         objpath.push(&tree_hash[2..]);
-        println!("objpath: {:?}", objpath);
+        //println!("objpath: {:?}", objpath);
         std::fs::create_dir_all(objpath.parent().unwrap())?;
-        println!("objpath: {:?}", objpath);
+        //println!("objpath: {:?}", objpath);
         let compressed = compress_object::<Tree>(tree_content)?;
-        println!("compressed: {:?}", compressed);
+        //println!("compressed: {:?}", compressed);
         std::fs::write(objpath, compressed)?;
-        println!("tree_hash: {}", tree_hash);
+        //println!("tree_hash: {}", tree_hash);
         Ok(tree_hash)
   
     }
