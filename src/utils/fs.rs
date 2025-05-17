@@ -112,9 +112,24 @@ where
     P: AsRef<Path>
 {
     if path.as_ref().is_dir() {
-        path.as_ref().read_dir()?
-            .map(|x| x.map(|x|x.path()).map_err(GitError::no_permision))
+        let pathbufs = path.as_ref()
+            .read_dir()?
+            .map(|x| x.map(|x|x.path()) .map_err(GitError::no_permision))
+            .collect::<Result<Vec<_>>>()?;
+
+        let files = pathbufs.iter()
+            .filter(|x|x.is_file())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let iter_dirs = pathbufs.into_iter()
+            .filter(|x|x.is_dir())
+            .map(walk)
             .collect::<Result<Vec<_>>>()
+            .map(|x|x.into_iter().flatten());
+
+        iter_dirs
+            .map(|x|x.into_iter().chain(files).collect::<Vec<_>>())
     }
     else {
         Ok([path.as_ref().to_path_buf()].to_vec())
@@ -122,11 +137,13 @@ where
 }
 
 /// assert path is child or son of dir and return path's relative path of dir
-pub fn calc_relative_path<P>(dir: P, path: P) -> Result<PathBuf>
-where P: AsRef<Path>
+pub fn calc_relative_path<P, M>(dir: P, path: M) -> Result<PathBuf>
+where
+    P: AsRef<Path>,
+    M: AsRef<Path>,
 {
     let dir_path = dir.as_ref().to_path_buf();
-    let abs = dir_path.join(&path).canonicalize()?;
+    let abs = dir_path.join(path.as_ref()).canonicalize()?;
     if dir.as_ref() == abs {
         Ok(PathBuf::from("."))
     }
