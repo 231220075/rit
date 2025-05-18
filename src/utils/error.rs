@@ -19,6 +19,8 @@ pub enum GitError {
     InvalidObj(String),
     NoPermision(String),
     NotARepoFile(String),
+    FailedToReadFile(String),
+    FailedToWriteFile(String),
     NoSubCommand,
     NotInGitRepo,
 }
@@ -109,6 +111,18 @@ impl GitError {
         )
     }
 
+    pub fn failed_to_read_file(path: &str) -> Box<dyn Error> {
+        Box::new(
+            Self::FailedToReadFile(format!("failed to read file: {}", path))
+        )
+    }
+
+    pub fn failed_to_write_file(path: &str) -> Box<dyn Error> {
+        Box::new(
+            Self::FailedToWriteFile(format!("failed to write file: {}", path))
+        )
+    }
+
 }
 
 impl fmt::Display for GitError {
@@ -128,6 +142,8 @@ impl fmt::Display for GitError {
             GitError::InvaildPathEncoding(path) => write!(f, "invalid path encoding: {}", path),
             GitError::NoPermision(msg) => write!(f, "no access permission: {}", msg),
             GitError::NotARepoFile(path) => write!(f, "{} not in git repo", path),
+            GitError::FailedToReadFile(path) => write!(f, "failed to read file: {}", path),
+            GitError::FailedToWriteFile(path) => write!(f, "failed to write file: {}", path),
         }
     }
 }
