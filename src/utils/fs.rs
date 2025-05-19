@@ -137,40 +137,24 @@ where
 }
 
 /// assert path is child or son of dir and return path's relative path of dir
-// pub fn calc_relative_path<P, M>(dir: P, path: M) -> Result<PathBuf>
-// where
-//     P: AsRef<Path>,
-//     M: AsRef<Path>,
-// {
-//     let dir_path = dir.as_ref().to_path_buf();
-//     let abs = dir_path.join(path.as_ref()).canonicalize()?;
-//     if dir.as_ref() == abs {
-//         Ok(PathBuf::from("."))
-//     }
-//     else if dir_path.join(&abs) == abs {
-//         abs.strip_prefix(dir.as_ref())
-//             .map(|x|x.to_path_buf())
-//             .map_err(|x|GitError::not_a_repofile(x.to_string()))
-//     }
-//     else {
-//         Err(GitError::not_a_repofile(path.as_ref()))
-//     }
-// }
-
 pub fn calc_relative_path<P, M>(dir: P, path: M) -> Result<PathBuf>
 where
     P: AsRef<Path>,
     M: AsRef<Path>,
 {
-    let dir_path = dir.as_ref().canonicalize()?;
-    let abs_path = path.as_ref().canonicalize()?;
-    if dir_path == abs_path {
+    let dir_path = dir.as_ref().to_path_buf();
+    let abs = dir_path.join(path.as_ref()).canonicalize()?;
+    if dir.as_ref() == abs {
         Ok(PathBuf::from("."))
-    } else if abs_path.starts_with(&dir_path) {
-        abs_path.strip_prefix(&dir_path)
-            .map(|x| x.to_path_buf())
-            .map_err(|x| GitError::not_a_repofile(x.to_string()))
-    } else {
+    }
+    else if dir_path.join(&abs) == abs {
+        abs.strip_prefix(dir.as_ref())
+            .map(|x|x.to_path_buf())
+            .map_err(|x|GitError::not_a_repofile(x.to_string()))
+    }
+    else {
         Err(GitError::not_a_repofile(path.as_ref()))
     }
 }
+
+
