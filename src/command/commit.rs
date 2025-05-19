@@ -1,6 +1,7 @@
 use std::path::PathBuf;
-use clap::{Parser, Subcommand};
-use std::io;
+use clap::{Parser, Subcommand, Command};
+use std::io::{self, Write, Cursor};
+use std::process::Command as ProcessCommand;
 
 use crate::{
     GitError,
@@ -35,25 +36,41 @@ impl Commit {
 impl SubCommand for Commit {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
-        let tree_hash = WriteTree{}.run(Ok(gitdir.clone()))?;
+        let tree_hash = {
+            let output = ProcessCommand::new("sh")
+                .arg("-c")
+                .arg(format!("echo $(./git write-tree)"))
+                .output()
+                .expect("Failed to execute WriteTree");
+            String::from_utf8(output.stdout).unwrap().trim().to_string()
+        };
 
         let head_ref = read_head_ref(&gitdir)?;
         let parent_commit = read_ref_commit(&gitdir, &head_ref).ok();
-
         let commit_tree_args = {
-            let mut args = vec!["commit-tree".to_string(), tree_hash.to_string()];
+            let mut args = vec![];
             if let Some(msg) = &self.message {
                 args.push("-m".to_string());
                 args.push(msg.clone());
             }
             if let Some(parent) = parent_commit {
-                args.push("-p".to_string());
-                args.push(parent);
+                if !parent.trim().is_empty() { // 判断 parent 是否为空白
+                    args.push("-p".to_string());
+                    args.push(parent);
+                }
             }
+            args.push(tree_hash.to_string()); // 将 TREE_HASH 放在最后
             args
         };
-        let commit_hash = CommitTree::from_args(commit_tree_args.into_iter())?
-            .run(Ok(gitdir.clone()))?;
+        let commit_hash = {
+            let output = ProcessCommand::new("sh")
+                .arg("-c")
+                .arg(format!("echo $(./git commit-tree {})", commit_tree_args.join(" ")))
+                .output()
+                .expect("Failed to execute CommitTree");
+            String::from_utf8(output.stdout).unwrap().trim().to_string()
+
+        };
 
         
         //todo: update HEAD

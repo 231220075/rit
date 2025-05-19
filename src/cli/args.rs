@@ -10,7 +10,7 @@ use crate::{
         to_pathbuf,
     },
     command::{
-        Init, Add, Rm, Commit,
+        Init, Add, Rm, Commit, branch::Branch, checkout::Checkout,
         CatFile, SubCommand, HashObject,
         UpdateIndex, CommitTree, ReadTree, WriteTree,
     },
@@ -61,6 +61,8 @@ pub fn get_args(raw_args: impl Iterator<Item=String>) -> Result<Box<dyn SubComma
         "init"   => Init::from_args(raw_args),
         "add"    => Add::from_args(raw_args),
         "rm"     => Rm::from_args(raw_args),
+        "branch" => Branch::from_args(raw_args),
+        "checkout" => Checkout::from_args(raw_args),
         "update-index" => UpdateIndex::from_args(raw_args),
         "write-tree" => WriteTree::from_args(raw_args),
         "commit-tree" => CommitTree::from_args(raw_args),

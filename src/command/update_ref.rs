@@ -19,7 +19,7 @@ use super::SubCommand;
 #[derive(Parser, Debug)]
 #[command(name = "update-ref", about = "update the ref file")]
 pub struct UpdateRef {
-    #[arg(long, required = true, help = "Prefix to add to all paths in the tree")]
+    #[arg(required = true, help = "Prefix to add to all paths in the tree")]
     ref_path: String,
 
     #[arg(required = true, help = "tree hash")]
