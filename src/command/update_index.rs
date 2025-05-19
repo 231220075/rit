@@ -210,15 +210,15 @@ mod tests {
     //     let update_index = UpdateIndex::try_parse_from(args).unwrap();
     //     let result = update_index.run(get_git_dir());
 
-        // 验证运行结果
-        assert!(result.is_err());
-        if let Err(err) = result {
-            assert_eq!(
-                err.to_string(),
-                "No such file or directory (os error 2)"
-            );
-        }
-    }
+    //     // 验证运行结果
+    //     assert!(result.is_err());
+    //     if let Err(err) = result {
+    //         assert_eq!(
+    //             err.to_string(),
+    //             "No such file or directory (os error 2)"
+    //         );
+    //     }
+    // }
 
     #[test]
     fn test_with_simple_add() {
