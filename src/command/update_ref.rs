@@ -20,10 +20,10 @@ use super::SubCommand;
 #[command(name = "update-ref", about = "update the ref file")]
 pub struct UpdateRef {
     #[arg(required = true, help = "Prefix to add to all paths in the tree")]
-    ref_path: String,
+    pub ref_path: String,
 
     #[arg(required = true, help = "tree hash")]
-    tree_hash: String,
+    pub commit_hash: String,
 
 }
 
@@ -39,10 +39,10 @@ impl SubCommand for UpdateRef {
         let gitdir = gitdir?;
         let ref_path = gitdir.join(&self.ref_path);
 
-        std::fs::write(&ref_path, format!("{}\n", self.tree_hash))
+        std::fs::write(&ref_path, format!("{}\n", self.commit_hash))
             .map_err(|_| GitError::failed_to_write_file(&ref_path.to_string_lossy()))?;
 
-        println!("Updated ref {} to {}", self.ref_path, self.tree_hash);
+        println!("Updated ref {} to {}", self.ref_path, self.commit_hash);
         Ok(0)
     }
 }

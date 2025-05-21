@@ -9,6 +9,10 @@ use nom::{
     IResult,
 };
 use std::iter::repeat_n;
+use crate::{
+    GitError,
+    Result,
+};
 
 #[derive(Debug)]
 pub struct IndexEntry {
@@ -212,10 +216,10 @@ impl Index {
     }
 
 
-    pub fn read_from_file(&self, path: &Path) -> std::io::Result<Self> {
+    pub fn read_from_file(&self, path: &Path) -> Result<Self> {
         let bytes = std::fs::read(path)?;
         let (_, index) = Self::parse_index(&bytes).map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to parse index file")
+            GitError::InvalidCommand(path.to_str().unwrap().to_string())
         })?;
         Ok(index)
     }
