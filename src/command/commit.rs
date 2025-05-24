@@ -44,14 +44,18 @@ impl SubCommand for Commit {
                 .expect("Failed to execute WriteTree");
             String::from_utf8(output.stdout).unwrap().trim().to_string()
         };
-
+        println!("tree_hash: {}", tree_hash);
         let head_ref = read_head_ref(&gitdir)?;
         let parent_commit = read_ref_commit(&gitdir, &head_ref).ok();
         let commit_tree_args = {
             let mut args = vec![];
             if let Some(msg) = &self.message {
                 args.push("-m".to_string());
-                args.push(msg.clone());
+                if msg.contains(' ') {
+                    args.push(format!("\"{}\"", msg));
+                } else {
+                    args.push(msg.clone());
+                }    
             }
             if let Some(parent) = parent_commit {
                 if !parent.trim().is_empty() { // 判断 parent 是否为空白
@@ -62,12 +66,16 @@ impl SubCommand for Commit {
             args.push(tree_hash.to_string()); // 将 TREE_HASH 放在最后
             args
         };
+        println!("commit_tree_args: {:?}", commit_tree_args);
         let commit_hash = {
             let output = ProcessCommand::new("sh")
                 .arg("-c")
                 .arg(format!("echo $(./git commit-tree {})", commit_tree_args.join(" ")))
                 .output()
                 .expect("Failed to execute CommitTree");
+
+            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+            println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
             String::from_utf8(output.stdout).unwrap().trim().to_string()
 
         };
