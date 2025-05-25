@@ -1,7 +1,17 @@
 use std::{
     fmt,
+    cmp::{
+        PartialOrd,
+        Ord,
+        PartialEq,
+        Eq,
+        Ordering,
+    },
     result,
-    ops::Deref,
+    ops::{
+        Deref,
+        DerefMut,
+    },
     convert::{
         TryFrom,
     },
@@ -10,6 +20,7 @@ use std::{
     iter::Iterator,
 };
 
+use hex;
 use nom::{
     Parser,
     bytes::complete::{tag, take, take_until},
@@ -33,8 +44,13 @@ use hex::encode;
 
 use crate::utils::{
     objtype::{
+        Obj,
         ObjType,
         parse_meta,
+    },
+    fs::{
+        read_obj,
+        read_object,
     },
     error::{
         GitError,
@@ -63,6 +79,32 @@ impl fmt::Display for FileMode {
     }
 }
 
+impl TryFrom<u32> for FileMode {
+    type Error = Box<dyn Error>;
+
+    fn try_from(integer: u32) -> result::Result<Self, Self::Error> {
+        match integer {
+            0o100644 => Ok(FileMode::Blob),
+            0o40000  => Ok(FileMode::Tree),
+            0o160000 => Ok(FileMode::Commit),
+            0o120000 => Ok(FileMode::Symbolic),
+            other => Err(GitError::invalid_filemode(other.to_string()))
+        }
+    }
+}
+
+impl From<FileMode> for &'static str {
+
+    fn from(mode: FileMode) -> &'static str {
+        match mode {
+            FileMode::Blob     => "100644",
+            FileMode::Tree     => "040000",
+            FileMode::Commit   => "160000",
+            FileMode::Symbolic => "120000",
+        }
+    }
+}
+
 impl TryFrom<&[u8]> for FileMode {
     type Error = Box<dyn Error>;
 
@@ -78,7 +120,7 @@ impl TryFrom<&[u8]> for FileMode {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TreeEntry {
     pub mode: FileMode, //
     pub hash: String,   // 40 length
@@ -115,15 +157,39 @@ impl TreeEntry {
     }
 
     fn into_iter(self) -> impl Iterator<Item = u8> {
-        let mode = (self.mode as u32).to_be_bytes().to_vec();
-        let hash = self.hash.into_bytes();
+        let mode: &str = self.mode.into();
+        let hash = hex::decode(&self.hash).unwrap();
         let path = self.path.to_str().unwrap().as_bytes().to_vec();
 
-        mode.into_iter()
-            .chain(hash)
+        mode.to_string()
+            .into_bytes()
+            .into_iter()
+            .chain(b" ".into_iter().cloned())
             .chain(path)
+            .chain(b"\0".into_iter().cloned())
+            .chain(hash)
     }
 
+    fn into_iter_flatten(self, gitdir: PathBuf) -> Result<Vec<Self>> {
+        let obj = read_obj(gitdir.clone(), &self.hash)?;
+        println!("self = {}", self);
+        match obj {
+            Obj::B(_) => Ok(vec![self]),
+            Obj::T(tree) => Ok(tree.0
+                .into_iter()
+                .map(|entry|entry.into_iter_flatten(gitdir.clone()))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .map(|TreeEntry{mode, hash, path}| TreeEntry {
+                    mode: mode,
+                    hash: hash,
+                    path: self.path.join(path)
+                })
+                .collect::<Vec<_>>()),
+            Obj::C(cmt) => Err(GitError::invalid_commit(&format!("commit object {cmt} in tree object! your git repo is totaly fucked up!")))
+        }
+    }
 }
 
 
@@ -147,6 +213,28 @@ impl TryFrom<&[u8]> for TreeEntry {
     }
 }
 
+impl PartialEq for TreeEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.path.eq(&other.path)
+    }
+}
+
+impl Eq for TreeEntry {
+}
+
+impl PartialOrd for TreeEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.path.cmp(&other.path))
+    }
+}
+
+impl Ord for TreeEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.path.cmp(&other.path)
+    }
+}
+
+
 impl fmt::Display for TreeEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:06o} {} {}\t{}", self.mode as u32, self.mode, self.hash.clone(), self.path.display())
@@ -154,6 +242,16 @@ impl fmt::Display for TreeEntry {
 }
 
 pub struct Tree(pub Vec<TreeEntry>);
+
+impl Tree {
+    pub fn into_iter_flatten(self, gitdir: PathBuf) -> Result<impl IntoIterator<Item = TreeEntry>> {
+        Ok(self.0.into_iter()
+            .map(|en|en.into_iter_flatten(gitdir.clone()))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten())
+    }
+}
 
 impl TryFrom<Vec<u8>> for Tree {
     type Error = Box<dyn Error>;
@@ -191,5 +289,30 @@ impl ObjType for Tree {
 impl fmt::Display for Tree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{}", self.0.iter().map(|x|x.to_string()).collect::<Vec<_>>().join("\n"))
+    }
+}
+
+impl TryFrom<Obj> for Tree {
+    type Error = Box<dyn Error>;
+
+    fn try_from(obj: Obj) -> Result<Tree> {
+        match obj {
+            Obj::T(tree) => Ok(tree),
+            _ => Err(GitError::not_a_ttree("think twice before do it!")),
+        }
+    }
+}
+
+impl Deref for Tree {
+    type Target = Vec<TreeEntry>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Tree {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

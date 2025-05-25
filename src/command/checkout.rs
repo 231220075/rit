@@ -1,5 +1,7 @@
-use std::path::PathBuf;
-
+use std::path::{
+    PathBuf,
+    Path,
+};
 use clap::{Parser, Subcommand};
 use crate::{
     GitError,
@@ -38,7 +40,7 @@ impl Checkout {
         Ok(Box::new(Checkout::try_parse_from(args)?))
     }
 
-    pub fn restore_workspace(gitdir: &PathBuf, commit_hash: &str) -> Result<()> {
+    pub fn restore_workspace(gitdir: &Path, commit_hash: &str) -> Result<()> {
         let commit_path = gitdir.join("objects").join(&commit_hash[0..2]).join(&commit_hash[2..]);
         let decompressed = decompress_file_bytes(&commit_path)?;
         if let Some(tree_hash) = Checkout::extract_tree_hash(&decompressed) {

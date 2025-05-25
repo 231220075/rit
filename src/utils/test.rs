@@ -95,7 +95,7 @@ where
 
 pub type Args<'a> = &'a[&'a str];
 pub type ArgsList<'a> = &'a[(Args<'a>, bool)];
-pub fn cmd_seq<'a>(args_list: ArgsList<'a>) -> impl FnMut(Args<'a>) -> Result<Vec<String>, String>
+pub fn cmd_seq<'a, 'b>(args_list: ArgsList<'a>) -> impl FnMut(Args<'b>) -> Result<Vec<String>, String>
 {
     move |command: Args| {
         let command = command.iter().collect::<Vec<_>>();
@@ -111,7 +111,7 @@ pub fn cmd_seq<'a>(args_list: ArgsList<'a>) -> impl FnMut(Args<'a>) -> Result<Ve
             .map(|(cmd, is_print)| {
                 let output = shell_spawn(cmd.as_slice());
                 if *is_print {
-                    println!("{:?}", output);
+                    println!("cmd: {} output: {:?}", cmd.join(" "), output);
                 }
                 output
             })

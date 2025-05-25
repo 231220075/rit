@@ -32,7 +32,7 @@ impl IndexEntry {
     }
 
 }
-
+#[derive(Debug)]
 pub struct Index {
     pub entries: Vec<IndexEntry>,
 }

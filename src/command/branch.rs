@@ -47,27 +47,25 @@ impl SubCommand for Branch {
             } else {
                 return Err(GitError::invalid_command("no file to remove".to_string()));
             }
+        } else if let Some(ref branch_name) = self.branch_name {
+            let head_ref = read_head_ref(&gitdir)?;
+            let commit_hash = read_ref_commit(&gitdir, &head_ref)?;
+            let new_branch = heads_dir.join(branch_name);
+            if new_branch.exists() {
+                return Err(GitError::invalid_command(format!("branch '{}' already exist", branch_name)));
+            }
+            fs::write(&new_branch, format!("{}\n", commit_hash))
+                .map_err(|_| GitError::failed_to_write_file(&new_branch.to_string_lossy()))?;
+            println!("Branch '{}' created at {}", branch_name, commit_hash);
         } else {
-            if let Some(ref branch_name) = self.branch_name {
-                let head_ref = read_head_ref(&gitdir)?;
-                let commit_hash = read_ref_commit(&gitdir, &head_ref)?;
-                let new_branch = heads_dir.join(branch_name);
-                if new_branch.exists() {
-                    return Err(GitError::invalid_command(format!("branch '{}' already exist", branch_name)));
-                }
-                fs::write(&new_branch, format!("{}\n", commit_hash))
-                    .map_err(|_| GitError::failed_to_write_file(&new_branch.to_string_lossy()))?;
-                //println!("Branch '{}' created at {}", branch_name, commit_hash);
-            } else {
-                let current_ref = read_head_ref(&gitdir)?;
-                for entry in fs::read_dir(&heads_dir)? {
-                    let entry = entry?;
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    if format!("refs/heads/{}", name) == current_ref {
-                        //println!("* {}", name);
-                    } else {
-                        //println!("  {}", name);
-                    }
+            let current_ref = read_head_ref(&gitdir)?;
+            for entry in fs::read_dir(&heads_dir)? {
+                let entry = entry?;
+                let name = entry.file_name().to_string_lossy().to_string();
+                if format!("refs/heads/{}", name) == current_ref {
+                    println!("* {}", name);
+                } else {
+                    println!("  {}", name);
                 }
             }
         }

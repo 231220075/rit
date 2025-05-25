@@ -1,9 +1,11 @@
 use clap::{Parser, Subcommand};
+use itertools::Itertools;
 use std::{
     path::{
         PathBuf,
         Path
     },
+    fs::remove_file,
 };
 use crate::{
     GitError,
@@ -87,8 +89,9 @@ impl SubCommand for Rm {
             index.read_from_file(&gitdir.join("index"))?;
         }
 
+        let all_paths = self.walks_all_path(project_root.to_path_buf(), &index)?;
         if self.cached {
-            self.walks_all_path(project_root.to_path_buf(), &index)?.into_iter()
+            all_paths.into_iter()
             .for_each(|path| {
                 if let Some((idx, _)) = index.entries
                     .iter()
@@ -98,12 +101,28 @@ impl SubCommand for Rm {
                     index.entries.remove(idx);
                 };
             });
-            index.write_to_file(&index_file)?;
-            Ok(0)
         }
         else {
-            todo!("直接从文件系统中删除");
+            let mut removed_file = vec![];
+            all_paths.into_iter()
+            .for_each(|path| {
+                if let Some((idx, _)) = index.entries
+                    .iter()
+                    .enumerate()
+                    .find(|(_, en)|en.name == path.to_str().unwrap())
+                {
+                    let path = project_root.join(index.entries[idx].name.clone());
+                    let result = remove_file(&path)
+                        .map_err(move|e|GitError::failed_to_remove_file(format!("unable to remove file {} due to {}", path.display(), e.to_string())));
+                    removed_file.push(result);
+                    index.entries.remove(idx);
+                };
+            });
+            removed_file.into_iter()
+                .collect::<Result<Vec<_>>>()?;
         }
+        index.write_to_file(&index_file)?;
+        Ok(0)
     }
 }
 
@@ -155,9 +174,18 @@ mod test {
 
         println!("{}", shell_spawn(&["ls", "-lahR", temp_path_str1]).unwrap());
 
-        let origin = shell_spawn(&["git", "-C", temp_path_str1, "ls-files", "--stage", "|", "sort"]).unwrap();
-        let real = shell_spawn(&["git", "-C", temp_path_str2, "ls-files", "--stage", "|", "sort"]).unwrap();
-        assert_eq!(origin, real);
+        let origin = shell_spawn(&["git", "-C", temp_path_str1, "ls-files", "--stage"]).unwrap();
+        let real = shell_spawn(&["git", "-C", temp_path_str2, "ls-files", "--stage"]).unwrap();
+        assert_eq!(
+            real.split("\n")
+                .into_iter()
+                .sorted()
+                .collect::<String>(),
+            origin.split("\n")
+                .into_iter()
+                .sorted()
+                .collect::<String>()
+        );
     }
 
     #[test]
@@ -190,8 +218,17 @@ mod test {
 
         println!("{}", shell_spawn(&["ls", "-lahR", temp_path_str1]).unwrap());
 
-        let origin = shell_spawn(&["git", "-C", temp_path_str1, "ls-files", "--stage", "|", "sort"]).unwrap();
-        let real = shell_spawn(&["git", "-C", temp_path_str2, "ls-files", "--stage", "|", "sort"]).unwrap();
-        assert_eq!(origin, real);
+        let origin = shell_spawn(&["git", "-C", temp_path_str1, "ls-files", "--stage"]).unwrap();
+        let real = shell_spawn(&["git", "-C", temp_path_str2, "ls-files", "--stage"]).unwrap();
+        assert_eq!(
+            real.split("\n")
+                .into_iter()
+                .sorted()
+                .collect::<String>(),
+            origin.split("\n")
+                .into_iter()
+                .sorted()
+                .collect::<String>()
+        );
     }
 }

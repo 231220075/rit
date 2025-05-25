@@ -1,4 +1,5 @@
 use std::{
+    error::Error,
     env::current_dir,
     io::{BufReader, Read},
     fs::{read, File},
@@ -12,8 +13,14 @@ use crate::{
 
 use super::{
     hash::hash_object,
-    zlib::compress_object,
-    objtype::ObjType,
+    zlib::{
+        compress_object,
+        decompress_file_as_bytes,
+    },
+    objtype::{
+        Obj,
+        ObjType,
+    },
     index:: {
         IndexEntry,
         Index,
@@ -83,12 +90,29 @@ pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result
 
     gitdir.extend(["objects", &commit_hash[0..2], &commit_hash[2..]]);
 
-    std::fs::create_dir_all(gitdir.parent().unwrap())?;
+    std::fs::create_dir_all(gitdir.parent().unwrap()).map_err(GitError::no_permision)?;
     std::fs::write(
         &gitdir,
-    compress_object::<T>(content)?)?;
+    compress_object::<T>(content)?).map_err(GitError::no_permision)?;
 
     Ok(commit_hash)
+}
+
+pub fn read_obj(mut gitdir: PathBuf, hash: &str) -> Result<Obj> {
+    gitdir.extend(["objects", &hash[0..2], &hash[2..]]);
+    let bytes = decompress_file_as_bytes(&gitdir)?;
+    // println!("read {}", gitdir.display());
+    // println!("string = {}", String::from_utf8_lossy(&bytes).to_owned());
+    bytes.try_into()
+}
+
+pub fn read_object<T>(gitdir: PathBuf, hash: &str) -> Result<T>
+where
+    T: ObjType + TryFrom<Obj, Error=Box<dyn Error>>
+{
+    let obj = read_obj(gitdir, hash)
+        .map_err(|e|GitError::invalid_obj(format!("fail to read {} object {}\n", T::VALUE, hash) + &e.to_string()))?;
+    obj.try_into()
 }
 
 pub fn add_object<T>(gitdir: PathBuf, path: impl AsRef<Path>) -> Result<IndexEntry>

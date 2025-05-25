@@ -1,46 +1,104 @@
+use std::fs;
+use std::path::PathBuf;
+use std::convert::Into;
+use std::env::current_dir;
+use clap::{Parser, Subcommand, CommandFactory};
+
+use crate::utils::{
+    zlib::{
+        decompress_file,
+        decompress_file_as_bytes,
+    },
+    fs::obj_to_pathbuf,
+    objtype::{
+        ObjType,
+        parse_meta,
+        Obj,
+    },
+    blob::Blob,
+    tree::Tree,
+    commit::Commit,
+};
+
 use crate::{
     GitError,
     Result,
 };
-use super::{
-    SubCommand,
-    PathBuf
-};
-use std::fs;
+use super::SubCommand;
 
-#[derive(Debug)]
-pub struct Init;
+use nom::{
+    bytes::complete::{tag, take, take_until},
+    number::complete::be_u32,
+    IResult,
+};
+
+
+#[derive(Parser, Debug)]
+#[command(name = "init", about = "Create an empty Git repository or reinitialize an existing one")]
+pub struct Init {
+    #[arg(help = "directory to be initialized")]
+    pub dir: Option<String>
+}
 
 impl Init {
-    pub fn from_args(_args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
-        Ok(Box::new(Self {}))
+    pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
+        Ok(Box::new(Init::try_parse_from(args)?))
     }
 }
 
 impl SubCommand for Init {
-    fn run(&self, _gitdir: Result<PathBuf>) -> Result<i32> {
-        let current_dir = std::env::current_dir().map_err(|_| GitError::invalid_command("Failed to get current directory".to_string()))?;
-        let git_dir = current_dir.join(".git");
-
-        // 创建 .git 文件夹
-        if git_dir.exists() {
-            return Err(GitError::invalid_command(".git directory already exists".to_string()));
+    fn run(&self, _: Result<PathBuf>) -> Result<i32> {
+        let curr_path = current_dir()?;
+        let gitdir = if self.dir.is_some() {
+            curr_path.join(self.dir.clone().unwrap())
         }
-        fs::create_dir(&git_dir).map_err(|_| GitError::invalid_command("Failed to create .git directory".to_string()))?;
+        else {
+            curr_path
+        }.join(".git");
 
-        // 创建 refs/heads 文件夹
-        let refs_heads_dir = git_dir.join("refs").join("heads");
-        fs::create_dir_all(&refs_heads_dir).map_err(|_| GitError::invalid_command("Failed to create refs/heads directory".to_string()))?;
+        let refs = gitdir.join("refs");
+        fs::create_dir_all(&refs)?;
+        fs::create_dir_all(refs.join("heads"))?;
+        fs::create_dir_all(refs.join("tags"))?;
+        fs::create_dir_all(refs.join("remote"))?;
 
-        // 创建 objects 文件夹
-        let objects_dir = git_dir.join("objects");
-        fs::create_dir(&objects_dir).map_err(|_| GitError::invalid_command("Failed to create objects directory".to_string()))?;
+        let objects = gitdir.join("objects");
+        fs::create_dir_all(&objects)?;
+        fs::create_dir_all(objects.join("info"))?;
+        fs::create_dir_all(objects.join("pack"))?;
 
-        // 创建 HEAD 文件并写入默认内容
-        let head_file = git_dir.join("HEAD");
-        fs::write(&head_file, "ref: refs/heads/master\n").map_err(|_| GitError::invalid_command("Failed to create HEAD file".to_string()))?;
-
-        //println!("Initialized empty Git repository in {}", git_dir.display());
+        std::fs::write( gitdir.join("HEAD"), b"ref: refs/heads/master")?;
         Ok(0)
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::utils::{
+        test::{
+            shell_spawn,
+            setup_test_git_dir,
+            mktemp_in,
+        },
+    };
+
+    #[test]
+    fn test_basic() {
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+
+        let _ = shell_spawn(&["ls", "-lahR", temp_path_str]).unwrap();
+
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "add", &file1_str]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "hash-object", file1_str]).unwrap();
+
+        let _ = shell_spawn(&["cargo", "run", "--quiet", "--", "init", temp_path_str]).unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "status"]).unwrap();
     }
 }

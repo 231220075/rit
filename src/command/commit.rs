@@ -6,10 +6,17 @@ use std::process::Command as ProcessCommand;
 use crate::{
     GitError,
     Result,
+    command::{
+        WriteTree, CommitTree, UpdateRef
+    },
+    utils:: {
+        refs::{
+            read_head_ref, read_ref_commit
+        },
+        hash::hash_object,
+    },
 };
 use super::SubCommand;
-use crate::command::{WriteTree, CommitTree, UpdateRef};
-use crate::utils::refs::{read_head_ref, read_ref_commit};
 
 #[derive(Parser, Debug)]
 #[command(name = "commit", about = "记录对存储库的更改")]
@@ -45,7 +52,7 @@ impl SubCommand for Commit {
         let commit_tree = CommitTree {
             tree_hash,
             message: self.message.clone().unwrap(),
-            pcommit: parent_commit
+            pcommit: parent_commit,
         };
 
         let commit_hash = commit_tree.asshole(gitdir.clone())?;

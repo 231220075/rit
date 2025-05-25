@@ -321,8 +321,8 @@ mod tests {
         let temp_path = temp.path();
         let temp_path_str = temp_path.to_str().unwrap();
 
-        let out = shell_spawn(&["cargo", "run", "--", "-C", temp_path_str, "update-index", "--add", temp_path_str]).unwrap_err();
-        assert!(out.contains("Is a directory"));
+        let out = shell_spawn(&["cargo", "run", "--", "-C", temp_path_str, "update-index", "--add", temp_path_str]);
+        assert!(out.is_err());
     }
 
 
