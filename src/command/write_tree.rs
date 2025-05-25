@@ -126,7 +126,7 @@ impl WriteTree {
         std::fs::write(objpath, compressed)?;
         //println!("tree_hash: {}", tree_hash);
         Ok(tree_hash)
-  
+
     }
 
     pub fn lazy_fucker(gitdir: PathBuf) -> Result<String> {

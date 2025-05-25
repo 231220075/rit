@@ -19,16 +19,43 @@ pub enum GitError {
     InvalidObj(String),
     NoPermision(String),
     NotARepoFile(String),
+    NotABBlob(String),
+    NotATTree(String),
+    NotACCommit(String),
+    DetachedBranch(String),
     FailedToReadFile(String),
     FailedToWriteFile(String),
+    FailedToRmoveFile(String),
+    BrokenCommitHistory(String),
+    MergeConflict(String),
     NoSubCommand,
     NotInGitRepo,
 }
 
 impl GitError {
-    pub fn invalid_obj(err: impl Error) -> Box::<dyn Error> {
+    pub fn merge_conflict(msg: String) -> Box::<dyn Error> {
         Box::new(
-            Self::InvalidObj(err.to_string())
+            Self::MergeConflict(msg)
+        )
+    }
+    pub fn not_a_ccommit(msg: &str) -> Box::<dyn Error> {
+        Box::new(
+            Self::NotACCommit(msg.to_string())
+        )
+    }
+    pub fn not_a_ttree(msg: &str) -> Box::<dyn Error> {
+        Box::new(
+            Self::NotATTree(msg.to_string())
+        )
+    }
+    pub fn not_a_bblob(msg: &str) -> Box::<dyn Error> {
+        Box::new(
+            Self::NotABBlob(msg.to_string())
+        )
+    }
+    pub fn invalid_obj(msg: String) -> Box::<dyn Error> {
+        Box::new(
+            Self::InvalidObj(msg)
         )
     }
     pub fn invalid_tree(err: impl Error) -> Box::<dyn Error> {
@@ -123,6 +150,23 @@ impl GitError {
         )
     }
 
+    pub fn failed_to_remove_file(msg: String) -> Box<dyn Error> {
+        Box::new(
+            Self::FailedToWriteFile(msg)
+        )
+    }
+
+    pub fn detached_branch(hash: String) -> Box<dyn Error> {
+        Box::new(
+            Self::DetachedBranch(hash)
+        )
+    }
+
+    pub fn broken_commit_history(hash: String) -> Box<dyn Error> {
+        Box::new(
+            Self::DetachedBranch(hash)
+        )
+    }
 }
 
 impl fmt::Display for GitError {
@@ -144,6 +188,13 @@ impl fmt::Display for GitError {
             GitError::NotARepoFile(path) => write!(f, "{} not in git repo", path),
             GitError::FailedToReadFile(path) => write!(f, "failed to read file: {}", path),
             GitError::FailedToWriteFile(path) => write!(f, "failed to write file: {}", path),
+            GitError::FailedToRmoveFile(msg) => write!(f, "{}", msg),
+            GitError::DetachedBranch(hash) => write!(f, "detached head {} current branch not found", hash),
+            GitError::BrokenCommitHistory(hash) => write!(f, "{} commit is broken", hash),
+            GitError::NotABBlob(msg) => write!(f, "debug Error, should not happen in release: {}", msg),
+            GitError::NotATTree(msg) => write!(f, "debug Error, should not happen in release: {}", msg),
+            GitError::NotACCommit(msg) => write!(f, "debug Error, should not happen in release: {}", msg),
+            GitError::MergeConflict(msg) => write!(f, "{}", msg),
         }
     }
 }
