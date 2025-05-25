@@ -34,14 +34,14 @@ impl SubCommand for SymbolicRef {
                 return Err(Box::new(GitError::InvalidCommand("只支持设置 HEAD 的符号引用".to_string())));
             }
             write_head_ref(&gitdir, target)?;
-            println!("Updated HEAD to {}", target);
+            //println!("Updated HEAD to {}", target);
         } else {
             let ref_value = if self.ref_name == "HEAD" {
                 read_head_ref(&gitdir)?
             } else {
                 return Err(Box::new(GitError::InvalidCommand("只支持读取 HEAD 的符号引用".to_string())));
             };
-            println!("{}", ref_value);
+            //println!("{}", ref_value);
         }
         Ok(0)
     }

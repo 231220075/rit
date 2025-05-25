@@ -38,7 +38,7 @@ pub struct Rm {
 impl Rm {
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         let a = Rm::try_parse_from(args)?;
-        println!("{:?}", a);
+        //println!("{:?}", a);
         Ok(Box::new(a))
     }
 

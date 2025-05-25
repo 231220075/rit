@@ -39,12 +39,11 @@ impl SubCommand for Commit {
         let tree_hash = {
             let output = ProcessCommand::new("sh")
                 .arg("-c")
-                .arg(format!("echo $(./git write-tree)"))
+                .arg(format!("echo $(./rust-git write-tree)"))
                 .output()
                 .expect("Failed to execute WriteTree");
             String::from_utf8(output.stdout).unwrap().trim().to_string()
         };
-        println!("tree_hash: {}", tree_hash);
         let head_ref = read_head_ref(&gitdir)?;
         let parent_commit = read_ref_commit(&gitdir, &head_ref).ok();
         let commit_tree_args = {
@@ -66,16 +65,14 @@ impl SubCommand for Commit {
             args.push(tree_hash.to_string()); // 将 TREE_HASH 放在最后
             args
         };
-        println!("commit_tree_args: {:?}", commit_tree_args);
         let commit_hash = {
             let output = ProcessCommand::new("sh")
                 .arg("-c")
-                .arg(format!("echo $(./git commit-tree {})", commit_tree_args.join(" ")))
+                .arg(format!("echo $(./rust-git commit-tree {})", commit_tree_args.join(" ")))
                 .output()
                 .expect("Failed to execute CommitTree");
 
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+            
             String::from_utf8(output.stdout).unwrap().trim().to_string()
 
         };

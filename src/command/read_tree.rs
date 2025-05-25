@@ -144,4 +144,38 @@ mod test {
         assert!(out.contains("apk/"));
     }
 
+
+
+
+        #[test]
+    fn test_read_tree_without_prefix() {
+        let temp = setup_test_git_dir();
+        let temp_path = temp.path();
+        let temp_path_str = temp_path.to_str().unwrap();
+
+        // 创建文件并添加到 index
+        let file1 = mktemp_in(&temp).unwrap();
+        let file1_str = file1.to_str().unwrap();
+        let file2 = mktemp_in(&temp).unwrap();
+        let file2_str = file2.to_str().unwrap();
+        std::fs::write(&file1, "content1").unwrap();
+        std::fs::write(&file2, "content2").unwrap();
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "update-index", "--add", &file1_str, &file2_str]).unwrap();
+
+        // 写入 tree
+        let tree_hash = shell_spawn(&["git", "-C", temp_path_str, "write-tree"]).unwrap();
+        let tree_hash = tree_hash.trim();
+
+        // 清空 index
+        let _ = shell_spawn(&["git", "-C", temp_path_str, "rm", "-r", "--cached", ":/"]).unwrap();
+
+        // 使用 read-tree 恢复 tree 到 index
+        let _ = shell_spawn(&["cargo", "run", "--", "-C", temp_path_str, "read-tree", tree_hash]).unwrap();
+
+        // 验证 index 是否正确恢复
+        let out = shell_spawn(&["git", "-C", temp_path_str, "ls-files", "--stage"]).unwrap();
+        println!("out: {}", out);
+        assert!(out.contains(file1.file_name().unwrap().to_str().unwrap()));
+        assert!(out.contains(file2.file_name().unwrap().to_str().unwrap()));
+    }
 }

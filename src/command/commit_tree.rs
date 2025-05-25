@@ -120,7 +120,7 @@ mod tests {
             commit::Commit,
         };
         let temp_dir = setup_test_git_dir();
-        println!("{:?}", temp_dir);
+        //println!("{:?}", temp_dir);
         let git_dir = temp_dir.path().join(".git");
 
         // 设置当前工作目录
@@ -140,7 +140,7 @@ mod tests {
             .join(&commit_hash[0..2])
             .join(&commit_hash[2..]);
 
-        println!("Object path: {:?}", object_path); // 调试输出
+        //println!("Object path: {:?}", object_path); // 调试输出
 
         assert!(object_path.exists());
 
@@ -168,6 +168,6 @@ mod tests {
 
         let out = shell_spawn(&["git", "-C", temp_dir, "cat-file", "-p", &commit_hash]).unwrap();
         assert_eq!(content, out);
-        println!("{}", out);
+        //println!("{}", out);
     }
 }

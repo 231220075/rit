@@ -74,7 +74,6 @@ impl Index {
         buffer.extend_from_slice(&(self.entries.len() as u32).to_be_bytes());
 
         for entry in &self.entries {
-            println!("write to file");
             buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime
             buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime_nsec
             buffer.extend_from_slice(&0u32.to_be_bytes()); // mtime
