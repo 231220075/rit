@@ -40,9 +40,9 @@ impl SubCommand for Branch {
                     }
                     fs::remove_file(&branch_path)
                         .map_err(|_| GitError::failed_to_write_file(&branch_path.to_string_lossy()))?;
-                    println!("Branch '{}' deleted", branch_name);
+                    //println!("Branch '{}' deleted", branch_name);
                 } else {
-                    println!("Branch '{}' does not exist", branch_name);
+                    //println!("Branch '{}' does not exist", branch_name);
                 }
             } else {
                 return Err(GitError::invalid_command("no file to remove".to_string()));
@@ -56,19 +56,20 @@ impl SubCommand for Branch {
             }
             fs::write(&new_branch, format!("{}\n", commit_hash))
                 .map_err(|_| GitError::failed_to_write_file(&new_branch.to_string_lossy()))?;
-            println!("Branch '{}' created at {}", branch_name, commit_hash);
+            //println!("Branch '{}' created at {}", branch_name, commit_hash);
         } else {
             let current_ref = read_head_ref(&gitdir)?;
             for entry in fs::read_dir(&heads_dir)? {
                 let entry = entry?;
                 let name = entry.file_name().to_string_lossy().to_string();
                 if format!("refs/heads/{}", name) == current_ref {
-                    println!("* {}", name);
+                    //println!("* {}", name);
                 } else {
-                    println!("  {}", name);
+                    //println!("  {}", name);
                 }
             }
         }
+
         Ok(0)
     }
 }

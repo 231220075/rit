@@ -53,6 +53,7 @@ use crate::utils::{
 use crate::command::{
     commit,
     update_ref,
+    checkout::Checkout,
 };
 use crate::{
     GitError,
@@ -87,7 +88,7 @@ impl Merge {
             let hash = hash.unwrap();
             if let Obj::C(Commit {parent_hash,..}) = read_obj(gitdir.as_ref().to_path_buf(), &hash)? {
                 sofar.insert(0, hash);
-                Self::get_all_ancestor(gitdir, if parent_hash.len() > 0 {Some(parent_hash[0].clone())} else {None}, sofar)
+                Self::get_all_ancestor(gitdir, if !parent_hash.is_empty() {Some(parent_hash[0].clone())} else {None}, sofar)
             }
             else {
                 Err(GitError::broken_commit_history(hash))
@@ -107,8 +108,11 @@ impl Merge {
     }
 
     fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str) -> Result<()> {
-        let project_dir = gitdir.as_ref().parent().expect("gitdir 实现错误");
-        let _ = shell_spawn(&["git", "-C", project_dir.to_str().unwrap(), "checkout", branch_name])?;
+        // let project_dir = gitdir.as_ref().parent().expect("gitdir 实现错误");
+        // let _ = shell_spawn(&["git", "-C", project_dir.to_str().unwrap(), "checkout", branch_name])?;
+
+        let checkout = Checkout::from_internal(Some(branch_name.into()), vec![]);
+        checkout.run(Ok(gitdir.as_ref().to_path_buf()))?;
 
         write_head_ref(gitdir.as_ref(), &format!("refs/heads/{}", branch_name))?;
         // println!("wirte refs/heads/{} to .git/HEAD", branch_name);
@@ -177,13 +181,10 @@ impl Merge {
 
         let mut ranges: Vec<Vec<usize>> = vec![];
         diff.iter_all_changes()
-            .filter(|x|match x.tag() {
-                ChangeTag::Equal => false,
-                _ => true,
-            })
+            .filter(|x| !matches!(x.tag(), ChangeTag::Equal))
             .flat_map(|change|change.old_index())
             .fold(Vec::new(), |mut acc, ele| {
-                if (acc.len() == 0) || (acc[acc.len() - 1] + 1 == ele) {
+                if (acc.is_empty()) || (acc[acc.len() - 1] + 1 == ele) {
                     acc.push(ele);
                     // println!("add {} to {:?}", ele, acc);
                     acc
@@ -204,13 +205,13 @@ impl Merge {
         // println!("add {}", b.path.display());
         let mut mo = MergeOptions::new();
         mo.set_conflict_style(ConflictStyle::Merge);
-        if let Err(diff) = mo.merge("", &a_blob, &b_blob) {
+        if let Err(diff) = mo.merge("", a_blob, b_blob) {
             let hash = write_object::<Blob>(gitdir.clone(), diff.into_bytes())?;
             // println!("add {}", hash);
             index.add_entry({
                 IndexEntry {
                     mode: a.mode as u32,
-                    hash: hash,
+                    hash,
                     name: a.path.display().to_string()
                 }
             })
@@ -326,7 +327,7 @@ impl SubCommand for Merge {
                 .into_iter()
                 .map(|IndexEntry {mode, hash, name}| TreeEntry {
                     mode: mode.try_into().unwrap(),
-                    hash: hash,
+                    hash,
                     path: PathBuf::from(name),
                 })
                 .collect::<Vec<TreeEntry>>()
@@ -334,7 +335,7 @@ impl SubCommand for Merge {
             let tree_hash = write_object::<Tree>(gitdir.clone(), tree.into())?;
 
             let commit = Commit {
-                tree_hash: tree_hash,
+                tree_hash,
                 parent_hash: vec![hash1, hash2],
                 author: "Default Author <139881912@163.com> 1748165415 +0800".into(),
                 committer: "commiter Author <139881912@163.com> 1748165415 +0800".into(),

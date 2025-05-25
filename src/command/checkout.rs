@@ -1,7 +1,8 @@
 use std::path::{
     PathBuf,
-    Path,
+    Path
 };
+
 use clap::{Parser, Subcommand};
 use crate::{
     GitError,
@@ -10,15 +11,21 @@ use crate::{
 };
 use super::SubCommand;
 use std::fs;
-use crate::utils::zlib::decompress_file_bytes;
 use crate::utils::{
-    tree::{Tree, FileMode},
+    tree::{
+        Tree,
+        FileMode,
+        TreeEntry,
+    },
+    zlib::decompress_file_bytes,
     blob::Blob,
     index::Index,
+    hash::hash_object,
+    index::IndexEntry,
+    commit::Commit,
+    test::{shell_spawn, setup_test_git_dir},
+    fs::read_object,
 };
-use bincode;
-use crate::utils::hash::hash_object;
-use crate::utils::index::IndexEntry;
 
 #[derive(Parser, Debug)]
 #[command(name = "checkout", about = "切换分支")]
@@ -26,30 +33,47 @@ pub struct Checkout {
     #[arg(short = 'b', long = "branch", help = "创建新分支")]
     create_new_branch: bool,
 
-    #[arg(required = true, help = "分支名")]
-    branch_name: String,
+    #[arg(help = "分支名", required = false)]
+    branch_name_or_commit_hash: Option<String>,
+
+    #[arg(help = "文件/目录名", required = false)]
+    paths: Vec<String>,
 }
 
 impl Checkout {
+    pub fn from_internal(branch_name: Option<String>, paths: Vec<String>) -> Self {
+        Checkout {
+            create_new_branch: false,
+            branch_name_or_commit_hash: branch_name,
+            paths,
+        }
+    }
+
+    pub fn read_tree(gitdir: &Path, hash: String) -> Result<Tree> {
+        read_object::<Tree>(gitdir.to_path_buf(), &hash)
+            .map_err(|_| GitError::invalid_command(format!("failed to parse tree data for {}", hash)))
+    }
+
+    pub fn read_blob(gitdir: &Path, hash: &str) -> Result<Blob> {
+        read_object::<Blob>(gitdir.to_path_buf(), hash)
+            .map_err(|_| GitError::invalid_command(format!("failed to parse blob data for {}", hash)))
+    }
+
+    pub fn read_commit(gitdir: &Path, hash: &str) -> Result<(Commit, Tree)> {
+        let commit = read_object::<Commit>(gitdir.to_path_buf(), &hash)
+            .map_err(|_| GitError::invalid_command(format!("failed to parse commit data for {}", hash)))?;
+
+        let tree_hash = commit.tree_hash.clone();
+        Ok((commit, Self::read_tree(gitdir, tree_hash)?))
+    }
+
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         Ok(Box::new(Checkout::try_parse_from(args)?))
     }
 
-    pub fn restore_workspace(gitdir: &Path, commit_hash: &str) -> Result<()> {
-        let commit_path = gitdir.join("objects").join(&commit_hash[0..2]).join(&commit_hash[2..]);
-        let decompressed = decompress_file_bytes(&commit_path)?;
-        if let Some(tree_hash) = Checkout::extract_tree_hash(&decompressed) {
-            //println!("tree_hash: {}", tree_hash);
-            let tree_path = gitdir.join("objects").join(&tree_hash[0..2]).join(&tree_hash[2..]);
-            let tree_data = decompress_file_bytes(&tree_path)?;
-
-            let tree: Tree = Tree::try_from(tree_data)
-                .map_err(|_| GitError::invalid_command(format!("failed to parse tree data for {}", tree_hash)))?;
-            Checkout::restore_tree(gitdir, &PathBuf::from("."), &tree)?;
-        }
-        else {
-            return Err(GitError::invalid_command(format!("commit {} does not contain a tree", commit_hash)));
-        }
+    pub fn restore_workspace(gitdir: &PathBuf, commit_hash: &str) -> Result<()> {
+        let (_, tree) = Self::read_commit(gitdir, commit_hash)?;
+        Checkout::restore_tree(gitdir, &PathBuf::from("."), &tree)?;
         Ok(())
     }
 
@@ -59,46 +83,40 @@ impl Checkout {
         // //println!("content: {}", content);
         for line in content.lines() {
             if let Some(hash) = line.strip_prefix("tree ") {
-                return Some(hash.to_string()); 
+                return Some(hash.to_string()); // 提取 tree_hash
             }
         }
 
         None 
     }
 
-    fn restore_tree(gitdir: &PathBuf, base_path:&PathBuf, tree: &Tree) -> Result<()> {
+    fn restore_tree(gitdir: &PathBuf, base_path:&Path, tree: &Tree) -> Result<()> {
         for entry in &tree.0 {
             let file_path = base_path.join(&entry.path);
 
             match entry.mode {
                 FileMode::Blob =>{
-                    let blob_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                    let blob_data = decompress_file_bytes(&blob_path)?;
-                    let blob = Blob::try_from(blob_data)
-                        .map_err(|_| GitError::invalid_command(format!("failed to parse blob data for {}", entry.hash)))?;
-                    let content: Vec<u8> = Vec::from(blob);
+                    let blob = Self::read_blob(gitdir, &entry.hash)?;
+                    let content: Vec<u8> = blob.into();
                     //println!("content: {:?}", content);
-                    fs::write(&file_path, &content)
+                    fs::write(&file_path, content)
                         .map_err(|_| GitError::failed_to_write_file(&file_path.to_string_lossy()))?;
-                }
+                },
                 FileMode::Tree => {
                     fs::create_dir_all(&file_path)
                         .map_err(|_| GitError::failed_to_write_file(&file_path.to_string_lossy()))?;
-                    let sub_tree_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                    let sub_tree_data = decompress_file_bytes(&sub_tree_path)?;
-                    let sub_tree: Tree = Tree::try_from(sub_tree_data)
-                        .map_err(|_| GitError::invalid_command(format!("failed to parse tree data for {}", entry.hash)))?;
+                    let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
                     Checkout::restore_tree(gitdir, &file_path, &sub_tree)?;
-                }  
+                },
                 _ => {
                     return Err(GitError::invalid_command(format!("unsupported file mode: {:?}", entry.mode)));
-                }          
+                },
             }
         }
         Ok(())
     }
 
-    fn get_staged_file(gitdir: &PathBuf, path: &PathBuf) -> Result<Option<Vec<u8>>> {
+    fn get_staged_file(gitdir: &Path, path: &Path) -> Result<Option<Vec<u8>>> {
         let index_path = gitdir.join("index");
 
         let index = Index::new().read_from_file(&index_path).map_err(|_| {
@@ -107,11 +125,9 @@ impl Checkout {
 
         
         if let Some(entry) = index.entries.iter().find(|e| e.name == path.to_string_lossy()) {
-            let blob_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-            let blob_data = decompress_file_bytes(&blob_path)?;
-            let blob: Blob = Blob::try_from(blob_data)
-                .map_err(|_| GitError::invalid_command(format!("failed to parse blob data for {}", entry.hash)))?;
-            return Ok(Some(Vec::from(blob)));
+            let blob = Self::read_blob(gitdir, &entry.hash)?;
+            let content = Vec::<u8>::from(blob);
+            return Ok(Some(content));
         }
         Ok(None)
     }
@@ -146,11 +162,7 @@ impl Checkout {
 
             // 如果是目录（tree），递归检查子条目
             if entry.mode == 0o40000 {
-                let tree_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                let tree_data = decompress_file_bytes(&tree_path)?;
-                let tree: Tree = Tree::try_from(tree_data)
-                    .map_err(|_| GitError::invalid_command(format!("failed to parse tree data for {}", entry.hash)))?;
-
+                let tree = Self::read_tree(gitdir, entry.hash.clone())?;
                 if Self::is_workspace_modified_for_tree(gitdir, &file_path, &tree)? {
                     return Ok(true);
                 }
@@ -160,7 +172,7 @@ impl Checkout {
         Ok(false) // 工作区和 index 一致
     }
 
-    fn is_workspace_modified_for_tree(gitdir: &PathBuf, base_path: &PathBuf, tree: &Tree) -> Result<bool> {
+    fn is_workspace_modified_for_tree(gitdir: &PathBuf, base_path: &Path, tree: &Tree) -> Result<bool> {
         for entry in &tree.0 {
             let file_path = base_path.join(&entry.path);
 
@@ -184,11 +196,7 @@ impl Checkout {
 
             // 如果是目录（tree），递归检查子条目
             if entry.mode == FileMode::Tree {
-                let sub_tree_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                let sub_tree_data = decompress_file_bytes(&sub_tree_path)?;
-                let sub_tree: Tree = Tree::try_from(sub_tree_data)
-                    .map_err(|_| GitError::invalid_command(format!("failed to parse tree data for {}", entry.hash)))?;
-
+                let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
                 if Self::is_workspace_modified_for_tree(gitdir, &file_path, &sub_tree)? {
                     return Ok(true);
                 }
@@ -197,7 +205,7 @@ impl Checkout {
 
         Ok(false) // 工作区和 tree 一致
     }
-    fn is_index_modified(gitdir: &PathBuf, tree: &Tree) -> Result<bool> {
+    fn is_index_modified(gitdir: &Path, tree: &Tree) -> Result<bool> {
         // 读取 index 文件
         let index_path = gitdir.join("index");
         let index = Index::new().read_from_file(&index_path).map_err(|_| {
@@ -217,6 +225,8 @@ impl Checkout {
                     return Ok(true); // 文件内容不同
                 }
             } else {
+                // 如果 tree 中的文件在 index 中不存在
+                //println!("File missing in index: {:?}", entry.path);
                 return Ok(true); // 文件缺失
             }
         }
@@ -232,7 +242,7 @@ impl Checkout {
         Ok(false) // index 和 tree 一致
     }
 
-    fn merge_tree_into_index(gitdir: &PathBuf, tree: &Tree) -> Result<()> {
+    fn merge_tree_into_index(gitdir: &Path, tree: &Tree) -> Result<()> {
         let index_path = gitdir.join("index");
         let mut index = Index::new().read_from_file(&index_path).map_err(|_| {
             GitError::failed_to_read_file(&index_path.to_string_lossy())
@@ -284,11 +294,8 @@ impl Checkout {
                             continue;
                         }
                     }
-                    let blob_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                    let blob_data = decompress_file_bytes(&blob_path)?;
-                    let blob: Blob = Blob::try_from(blob_data).map_err(|_| {
-                        GitError::invalid_command(format!("failed to parse blob data for {}", entry.hash))
-                    })?;
+
+                    let blob = Self::read_blob(gitdir, &entry.hash)?;
                     let content: Vec<u8> = Vec::from(blob);
                     fs::write(&file_path, content).map_err(|_| {
                         GitError::failed_to_write_file(&file_path.to_string_lossy())
@@ -301,11 +308,7 @@ impl Checkout {
                             GitError::failed_to_write_file(&file_path.to_string_lossy())
                         })?;
                     }
-                    let tree_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                    let tree_data = decompress_file_bytes(&tree_path)?;
-                    let tree: Tree = Tree::try_from(tree_data).map_err(|_| {
-                        GitError::invalid_command(format!("failed to parse tree data for {}", entry.hash))
-                    })?;
+                    let tree = Self::read_tree(gitdir, entry.hash.clone())?;
                     Self::merge_index_into_workspace_for_tree(gitdir, &file_path, &tree)?;
                 }
                 _ => {
@@ -319,7 +322,7 @@ impl Checkout {
         Ok(())
     }
 
-    fn merge_index_into_workspace_for_tree(gitdir: &PathBuf, base_path: &PathBuf, tree: &Tree) -> Result<()> {
+    fn merge_index_into_workspace_for_tree(gitdir: &PathBuf, base_path: &Path, tree: &Tree) -> Result<()> {
         for entry in &tree.0 {
             let file_path = base_path.join(&entry.path);
 
@@ -336,9 +339,9 @@ impl Checkout {
                             continue;
                         }
                     }
-                    let blob_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                    let blob_data = decompress_file_bytes(&blob_path)?;
-                    fs::write(&file_path, blob_data).map_err(|_| {
+                    let blob = Self::read_blob(gitdir, &entry.hash)?;
+                    let content = Vec::<u8>::from(blob);
+                    fs::write(&file_path, content).map_err(|_| {
                         GitError::failed_to_write_file(&file_path.to_string_lossy())
                     })?;
                 }
@@ -349,11 +352,8 @@ impl Checkout {
                             GitError::failed_to_write_file(&file_path.to_string_lossy())
                         })?;
                     }
-                    let sub_tree_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
-                    let sub_tree_data = decompress_file_bytes(&sub_tree_path)?;
-                    let sub_tree: Tree = Tree::try_from(sub_tree_data).map_err(|_| {
-                        GitError::invalid_command(format!("failed to parse tree data for {}", entry.hash))
-                    })?;
+
+                    let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
                     Self::merge_index_into_workspace_for_tree(gitdir, &file_path, &sub_tree)?;
                 }
                 _ => {
@@ -368,70 +368,359 @@ impl Checkout {
     }
 
 
+    fn restore_from_index(gitdir: &PathBuf, paths: &[PathBuf]) -> Result<()> {
+        let index_path = gitdir.join("index");
+        let index = Index::new().read_from_file(&index_path).map_err(|_| {
+            GitError::failed_to_read_file(&index_path.to_string_lossy())
+        })?;
 
+        for path in paths {
+            for entry in &index.entries {
+                let entry_path = PathBuf::from(&entry.name);
+                if entry_path.starts_with(path) {
+                    if entry.mode == 0o40000 {
+                        // 如果是目录，创建目录并递归恢复其内容
+                        fs::create_dir_all(&entry_path).map_err(|_| {
+                            GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                        })?;
+                        let tree = Self::read_tree(gitdir, entry.hash.clone())?;
+                        Self::restore_from_index_for_tree(gitdir, &entry_path, &tree)?;
+                    } else if entry.mode == 0o100644 {
+                        // 如果是文件，恢复文件内容
+                        let blob = Self::read_blob(gitdir, &entry.hash)?;
+                        let content = Vec::<u8>::from(blob);
+                        fs::write(&entry_path, content).map_err(|_| {
+                            GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                        })?;
+                    }
+                    //println!("Restored: {:?}", entry_path);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn restore_from_index_for_tree(gitdir: &PathBuf, base_path: &Path, tree: &Tree) -> Result<()> {
+        for entry in &tree.0 {
+            let entry_path = base_path.join(&entry.path);
+            if entry.mode == FileMode::Tree {
+                // 如果是目录，递归处理
+                fs::create_dir_all(&entry_path).map_err(|_| {
+                    GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                })?;
+                let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
+                Self::restore_from_index_for_tree(gitdir, &entry_path, &sub_tree)?;
+            } else if entry.mode == FileMode::Blob {
+                // 如果是文件，恢复文件内容
+                let blob = Self::read_blob(gitdir, &entry.hash)?;
+                let content = Vec::<u8>::from(blob);
+                fs::write(&entry_path, content).map_err(|_| {
+                    GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                })?;
+            }
+            //println!("Restored: {:?}", entry_path);
+        }
+        Ok(())
+    }
+
+    fn restore_from_commit(gitdir: &PathBuf, commit_hash: &str, paths: &[PathBuf]) -> Result<()> {
+        let (_, tree) = Self::read_commit(gitdir, commit_hash)?;
+
+        for path in paths {
+            Self::restore_path_from_tree(gitdir, path, &tree, PathBuf::new())?;
+        }
+
+        Ok(())
+    }
+
+    fn restore_path_from_tree(
+        gitdir: &PathBuf,
+        path: &Path,
+        tree: &Tree,
+        base_path: PathBuf,
+    ) -> Result<()> {
+        if let Some(first_component) = path.components().next() {
+            let first_component = first_component.as_os_str();
+            let remaining_path = path.strip_prefix(first_component).unwrap_or(path);
+
+            for entry in &tree.0 {
+                let entry_path = base_path.join(&entry.path);
+
+                if entry.path == first_component {
+                    if remaining_path.as_os_str().is_empty() {
+                        // 完全匹配路径
+                        if entry.mode == FileMode::Tree {
+                            // 恢复整个目录
+                            fs::create_dir_all(&entry_path).map_err(|_| {
+                                GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                            })?;
+                            let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
+                            Self::restore_from_commit_for_tree(gitdir, &entry_path, &sub_tree)?;
+                        } else if entry.mode == FileMode::Blob {
+                            // 恢复文件
+                            let blob = Self::read_blob(gitdir, &entry.hash)?;
+                            let content = Vec::<u8>::from(blob);
+                            fs::write(&entry_path, content).map_err(|_| {
+                                GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                            })?;
+                        }
+
+                        // 更新 index
+                        Self::update_index(gitdir, &entry_path, entry)?;
+                        //println!("Restored: {:?}", entry_path);
+                    } else if entry.mode == FileMode::Tree {
+                        // 递归处理子目录
+                        let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
+                        Self::restore_path_from_tree(gitdir, &PathBuf::from(remaining_path), &sub_tree, entry_path)?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn restore_from_commit_for_tree(gitdir: &PathBuf, base_path: &Path, tree: &Tree) -> Result<()> {
+        for entry in &tree.0 {
+            let entry_path = base_path.join(&entry.path);
+            if entry.mode == FileMode::Tree {
+                // 如果是目录，递归处理
+                fs::create_dir_all(&entry_path).map_err(|_| {
+                    GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                })?;
+                let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
+                Self::restore_from_commit_for_tree(gitdir, &entry_path, &sub_tree)?;
+            } else if entry.mode == FileMode::Blob {
+                // 如果是文件，恢复文件内容
+                let blob = Self::read_blob(gitdir, &entry.hash)?;
+                let content = Vec::<u8>::from(blob);
+                fs::write(&entry_path, content).map_err(|_| {
+                    GitError::failed_to_write_file(&entry_path.to_string_lossy())
+                })?;
+            }
+            //println!("Restored: {:?}", entry_path);
+        }
+        Ok(())
+    }
+
+    fn update_index(gitdir: &Path, entry_path: &Path, entry: &TreeEntry) -> Result<()> {
+        let index_path = gitdir.join("index");
+        let mut index = Index::new().read_from_file(&index_path).map_err(|_| {
+            GitError::failed_to_read_file(&index_path.to_string_lossy())
+        })?;
+
+        let existing_entry = index.entries.iter_mut().find(|e| e.name == entry_path.to_string_lossy());
+        if let Some(existing_entry) = existing_entry {
+            // 如果存在同名条目，更新条目
+            existing_entry.mode = entry.mode as u32;
+            existing_entry.hash = entry.hash.clone();
+        } else {
+            // 如果不存在同名条目，新增条目
+            index.entries.push(IndexEntry {
+                name: entry_path.to_string_lossy().to_string(),
+                mode: entry.mode as u32,
+                hash: entry.hash.clone(),
+            });
+        }
+
+        index.write_to_file(&index_path).map_err(|_| {
+            GitError::failed_to_write_file(&index_path.to_string_lossy())
+        })?;
+
+        Ok(())
+    }
 
 }
 
 impl SubCommand for Checkout {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
-        let heads_dir = gitdir.join("refs/heads");
-        let branch_path = heads_dir.join(&self.branch_name);
-        if self.create_new_branch {
-            if branch_path.exists() {
-                return Err(GitError::invalid_command(format!("branch '{}' already exists", self.branch_name)));
+        let mut paths: Vec<PathBuf> = self.paths.iter().map(PathBuf::from).collect();
+
+        //println!("create_new_branch: {:?}", self.create_new_branch);
+        //println!("branch_name_or_commit_hash: {:?}", self.branch_name_or_commit_hash);
+        //println!("paths: {:?}", self.paths);
+        if let Some(ref commit_or_branch) = self.branch_name_or_commit_hash {
+            if commit_or_branch == "HEAD" || commit_or_branch.len() == 40 {
+                let commit_hash = if commit_or_branch == "HEAD" {
+                    read_ref_commit(&gitdir, &read_head_ref(&gitdir)?)?
+                } else {
+                    commit_or_branch.clone()
+                };
+                Checkout::restore_from_commit(&gitdir, &commit_hash, &paths)?;
             }
-            let head_ref = read_head_ref(&gitdir)?;
-            let commit_hash = read_ref_commit(&gitdir, &head_ref)?;
-            fs::write(&branch_path, format!("{}\n", commit_hash))
-                .map_err(|_| GitError::failed_to_write_file(&branch_path.to_string_lossy()))?;
-            write_head_ref(&gitdir, &format!("refs/heads/{}", self.branch_name))?;
-            //println!("Created new branch '{}'", self.branch_name);
-            Ok(0)
-        }else {
-            if !branch_path.exists() {
-                return Err(GitError::invalid_command(format!("branch '{}' does not exist", self.branch_name)));
+            else{
+                //切换分支逻辑
+                let heads_dir = gitdir.join("refs/heads");
+                let branch_path = heads_dir.join(commit_or_branch);
+                if self.create_new_branch {
+                    if branch_path.exists() {
+                        return Err(GitError::invalid_command(format!("branch '{}' already exists", commit_or_branch)));
+                    }
+                    let head_ref = read_head_ref(&gitdir)?;
+                    let commit_hash = read_ref_commit(&gitdir, &head_ref)?;
+                    fs::write(&branch_path, format!("{}\n", commit_hash))
+                        .map_err(|_| GitError::failed_to_write_file(&branch_path.to_string_lossy()))?;
+                    write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
+                    //println!("Created new branch '{}'", commit_or_branch);
+                    return Ok(0);
+                }else if !branch_path.exists() {
+                    paths.push(PathBuf::from(commit_or_branch));
+                }else{
+                    let current_ref = read_head_ref(&gitdir)?;
+                    if format!("refs/heads/{}", commit_or_branch) == current_ref {
+                        return Err(GitError::invalid_command(format!("already on branch '{}'", commit_or_branch)));
+                    }
+
+                    let current_commit_hash = read_ref_commit(&gitdir, &current_ref)?;
+                    let (_, tree) = Self::read_commit(&gitdir, &current_commit_hash)?;
+
+
+                    let workspace_modified = Self::is_workspace_modified(&gitdir)?;// 检查工作区是否有未暂存的修改
+                    let index_modified = Self::is_index_modified(&gitdir, &tree)?;//检查index是否有未commit的修改
+
+                    if !workspace_modified && !index_modified {
+                        let commit_hash = read_ref_commit(&gitdir, &branch_path.to_string_lossy())?;
+                        // 如果没有未暂存或未提交的更改
+                        //println!("No uncommitted changes. Switching branch...");
+
+                        write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
+                        Checkout::restore_workspace(&gitdir, &commit_hash)?;
+                        return Ok(0);
+                    }
+                    //println!("workspace_modified: {:?}", workspace_modified);
+                    //println!("index_modified: {:?}", index_modified);
+
+                    //println!("Uncommitted changes detected. Attempting to merge changes...");
+                    Checkout::merge_tree_into_index(&gitdir, &tree)?;
+                    Checkout::merge_index_into_workspace(&gitdir)?;
+                    write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
+                    //println!("Switched to branch '{}'", commit_or_branch);
+                    return Ok(0);
+                }
             }
-            let current_ref = read_head_ref(&gitdir)?;
-            if format!("refs/heads/{}", &self.branch_name) == current_ref {
-                return Err(GitError::invalid_command(format!("already on branch '{}'", self.branch_name)));
-            }
 
-            
-            let current_commit_hash = read_ref_commit(&gitdir, &current_ref)?;
-            let tree_hash = Checkout::extract_tree_hash(&decompress_file_bytes(
-                &gitdir.join("objects").join(&current_commit_hash[0..2]).join(&current_commit_hash[2..]),
-                )?).ok_or_else(|| {
-                    GitError::invalid_command(format!("commit {} does not contain a tree", current_commit_hash))
-                })?;
-            let tree_path = gitdir.join("objects").join(&tree_hash[0..2]).join(&tree_hash[2..]);
-            let tree_data = decompress_file_bytes(&tree_path)?;
-            let tree: Tree = Tree::try_from(tree_data)
-                .map_err(|_| GitError::invalid_command(format!("failed to parse tree data for {}", tree_hash)))?; 
-            
-            let workspace_modified = Self::is_workspace_modified(&gitdir)?;// 检查工作区是否有未暂存的修改
-            let index_modified = Self::is_index_modified(&gitdir, &tree)?;//检查index是否有未commit的修改
-
-            if !workspace_modified && !index_modified {
-                let commit_hash = read_ref_commit(&gitdir, &branch_path.to_string_lossy())?;
-
-                // 如果没有未暂存或未提交的更改
-                //println!("No uncommitted changes. Switching branch...");
-                write_head_ref(&gitdir, &format!("refs/heads/{}", self.branch_name))?;
-                Checkout::restore_workspace(&gitdir, &commit_hash)?;
-                return Ok(0);
-            }
-            //println!("workspace_modified: {:?}", workspace_modified);
-            //println!("index_modified: {:?}", index_modified);
-
-            //println!("Uncommitted changes detected. Attempting to merge changes...");
-            Checkout::merge_tree_into_index(&gitdir, &tree)?;
-            Checkout::merge_index_into_workspace(&gitdir)?;
-            write_head_ref(&gitdir, &format!("refs/heads/{}", self.branch_name))?;
-            //println!("Switched to branch '{}'", self.branch_name);
-
-            Ok(0)
-            
         }
+        if !paths.is_empty(){
+            //只指定文件路径/目录
+            Checkout::restore_from_index(&gitdir, &paths)?;
+        } else {
+            return Err(GitError::invalid_command("no commit hash or branch name provided".to_string()));
+        }
+        Ok(0)
+
     }
+}
+
+
+
+
+
+#[test]
+fn test_checkout_single_file() {
+    let repo = setup_test_git_dir();
+
+    // 创建文件并提交
+    let file_path = repo.path().join("foo.txt");
+    std::fs::write(&file_path, "hello").unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "add foo"]).unwrap();
+
+    // 修改文件内容
+    std::fs::write(&file_path, "changed").unwrap();
+
+    // 执行 checkout 恢复文件
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", "foo.txt"]).unwrap();
+
+    // 验证文件内容是否恢复
+    let content = std::fs::read_to_string(&file_path).unwrap();
+    assert_eq!(content, "hello");
+}
+
+#[test]
+fn test_checkout_entire_directory() {
+    let repo = setup_test_git_dir();
+
+    // 创建目录和文件并提交
+    let dir_path = repo.path().join("dir");
+    std::fs::create_dir_all(&dir_path).unwrap();
+    std::fs::write(dir_path.join("a.txt"), "A").unwrap();
+    std::fs::write(dir_path.join("b.txt"), "B").unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "add dir"]).unwrap();
+
+    // 修改文件内容
+    std::fs::write(dir_path.join("a.txt"), "X").unwrap();
+    std::fs::write(dir_path.join("b.txt"), "Y").unwrap();
+
+    // 执行 checkout 恢复目录
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", "dir"]).unwrap();
+
+    // 验证文件内容是否恢复
+    let content_a = std::fs::read_to_string(dir_path.join("a.txt")).unwrap();
+    let content_b = std::fs::read_to_string(dir_path.join("b.txt")).unwrap();
+    assert_eq!(content_a, "A");
+    assert_eq!(content_b, "B");
+}
+
+#[test]
+fn test_checkout_file_from_commit() {
+    let repo = setup_test_git_dir();
+
+    // 创建文件并提交两次
+    let file_path = repo.path().join("foo.txt");
+    std::fs::write(&file_path, "v1").unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c1"]).unwrap();
+    std::fs::write(&file_path, "v2").unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c2"]).unwrap();
+
+    // 获取第一个提交的哈希
+    let commit1 = shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "rev-parse", "HEAD~1"])
+        .unwrap()
+        .trim()
+        .to_string();
+
+    // 修改文件内容
+    std::fs::write(&file_path, "changed").unwrap();
+
+    // 执行 checkout 恢复文件到第一个提交的状态
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", &commit1, "--", "foo.txt"]).unwrap();
+
+    // 验证文件内容是否恢复
+    let content = std::fs::read_to_string(&file_path).unwrap();
+    assert_eq!(content, "v1");
+}
+
+#[test]
+fn test_checkout_directory_from_commit() {
+    let repo = setup_test_git_dir();
+
+    // 创建目录和文件并提交两次
+    let dir_path = repo.path().join("dir");
+    std::fs::create_dir_all(&dir_path).unwrap();
+    std::fs::write(dir_path.join("a.txt"), "A1").unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c1"]).unwrap();
+    std::fs::write(dir_path.join("a.txt"), "A2").unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c2"]).unwrap();
+
+    // 获取第一个提交的哈希
+    let commit1 = shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "rev-parse", "HEAD~1"])
+        .unwrap()
+        .trim()
+        .to_string();
+
+    // 修改文件内容
+    std::fs::write(dir_path.join("a.txt"), "changed").unwrap();
+
+    // 执行 checkout 恢复目录到第一个提交的状态
+    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", &commit1, "--", "dir"]).unwrap();
+
+    // 验证文件内容是否恢复
+    let content_a = std::fs::read_to_string(dir_path.join("a.txt")).unwrap();
+    assert_eq!(content_a, "A1");
 }

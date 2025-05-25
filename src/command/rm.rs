@@ -40,7 +40,7 @@ pub struct Rm {
 impl Rm {
     pub fn from_args(args: impl Iterator<Item = String>) -> Result<Box<dyn SubCommand>> {
         let a = Rm::try_parse_from(args)?;
-        println!("{:?}", a);
+        //println!("{:?}", a);
         Ok(Box::new(a))
     }
 
@@ -113,7 +113,7 @@ impl SubCommand for Rm {
                 {
                     let path = project_root.join(index.entries[idx].name.clone());
                     let result = remove_file(&path)
-                        .map_err(move|e|GitError::failed_to_remove_file(format!("unable to remove file {} due to {}", path.display(), e.to_string())));
+                        .map_err(move|e|GitError::failed_to_remove_file(format!("unable to remove file {} due to {}", path.display(), e)));
                     removed_file.push(result);
                     index.entries.remove(idx);
                 };

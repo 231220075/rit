@@ -41,7 +41,7 @@ impl SubCommand for UpdateRef {
         std::fs::write(&ref_path, format!("{}\n", self.commit_hash))
             .map_err(|_| GitError::failed_to_write_file(&ref_path.to_string_lossy()))?;
 
-        println!("Updated ref {} to {}", self.ref_path, self.commit_hash);
+        //println!("Updated ref {} to {}", self.ref_path, self.commit_hash);
         Ok(0)
     }
 }
