@@ -20,10 +20,10 @@ use super::SubCommand;
 #[command(name = "update-ref", about = "update the ref file")]
 pub struct UpdateRef {
     #[arg(required = true, help = "Prefix to add to all paths in the tree")]
-    ref_path: String,
+    pub ref_path: String,
 
     #[arg(required = true, help = "tree hash")]
-    commit_hash: String,
+    pub commit_hash: String,
 
 }
 

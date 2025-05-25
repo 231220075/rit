@@ -166,6 +166,7 @@ mod test {
         let hash = hash.strip_suffix("\n").unwrap();
 
         let origin = shell_spawn(&["git", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
+        println!("{}", origin);
         let real = shell_spawn(&["cargo", "run", "--quiet", "--", "-C", temp_path_str, "cat-file", "-p", &hash]).unwrap();
         println!("{}", real);
         assert_eq!(origin, real);

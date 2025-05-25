@@ -18,13 +18,13 @@ use super::SubCommand;
 #[command(name = "commit-tree", about = "Create a commit object from a tree object")]
 pub struct CommitTree {
     #[arg(required = true, help = "The tree object hash")]
-    tree_hash: String,
+    pub tree_hash: String,
 
     #[arg(short = 'm', required = true, help = "The commit message")]
-    message: String,
+    pub message: String,
 
     #[arg(short = 'p', help = "The parent commit hash")]
-    pcommit: Option<String>,
+    pub pcommit: Option<String>,
 }
 
 impl CommitTree {
@@ -67,6 +67,11 @@ impl CommitTree {
         content
     }
 
+    pub fn asshole(self, gitdir: PathBuf) -> Result<String> {
+        let commit_content = self.build_commit_content();
+
+        write_object::<Commit>(gitdir, commit_content.into_bytes())
+    }
 }
 
 impl SubCommand for CommitTree {

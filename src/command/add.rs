@@ -69,7 +69,7 @@ impl SubCommand for Add {
 
         let mut index = Index::new();
         if index_file.exists() {
-            index.read_from_file(&gitdir.join("index"))?;
+            index = index.read_from_file(&gitdir.join("index"))?;
         }
 
         let _ = self.walk_path(project_root.to_path_buf())?
