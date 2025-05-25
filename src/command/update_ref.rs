@@ -24,7 +24,6 @@ pub struct UpdateRef {
 
     #[arg(required = true, help = "tree hash")]
     pub commit_hash: String,
-
 }
 
 impl UpdateRef {

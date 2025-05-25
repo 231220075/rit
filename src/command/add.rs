@@ -73,7 +73,7 @@ impl SubCommand for Add {
             index = index.read_from_file(&index_file)?;
         }
 
-        println!("index_file exists index = {:?}", index);
+        // println!("index_file exists index = {:?}", index);
 
         let _ = self.walk_path(project_root.to_path_buf())?
             .into_iter()

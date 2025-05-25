@@ -20,8 +20,8 @@ use super::SubCommand;
 #[derive(Parser, Debug)]
 #[command(name = "read-tree", about = "create a tree object according to the current index")]
 pub struct ReadTree {
-    #[arg(long, required = true, help = "Prefix to add to all paths in the tree")]
-    prefix: String,
+    #[arg(long, help = "Prefix to add to all paths in the tree")]
+    prefix: Option<String>,
 
     #[arg(required = true, help = "tree hash")]
     tree_hash: String,
@@ -44,7 +44,11 @@ fn restore_tree_to_index(gitdir: &Path, tree_hash: &str, prefix: &str, index: &m
         match entry.mode {
             FileMode::Tree => {
                 // 目录，递归
-                let sub_prefix = format!("{}/{}", prefix, entry.path.display());
+                let sub_prefix = if prefix.is_empty() {
+                    entry.path.display().to_string()
+                } else {
+                    format!("{}/{}", prefix.trim_end_matches('/'), entry.path.display())
+                };
                 restore_tree_to_index(gitdir, &entry.hash, &sub_prefix, index)?;
             }
             FileMode::Blob | FileMode::Commit | FileMode::Symbolic => {
@@ -93,11 +97,15 @@ impl SubCommand for ReadTree {
         //     GitError::InvalidCommand("Failed to write index file".to_string())
         // })?;
         // Ok(0)
-
-        index = index.read_from_file(&index_path).map_err(|_| {
-            GitError::InvalidCommand("Failed to read index file".to_string())
-        })?;
-        restore_tree_to_index(&gitdir, &self.tree_hash, &self.prefix, &mut index)?;
+        if let Some(prefix) = &self.prefix{
+            index = index.read_from_file(&index_path).map_err(|_| {
+                GitError::InvalidCommand("Failed to read index file".to_string())
+            })?;
+            restore_tree_to_index(&gitdir, &self.tree_hash, prefix, &mut index)?;
+        }
+        else{
+            restore_tree_to_index(&gitdir, &self.tree_hash, "", &mut index)?;
+        }
         index.write_to_file(&index_path).map_err(|_| {
             GitError::InvalidCommand("Failed to write index file".to_string())
         })?;

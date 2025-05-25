@@ -51,7 +51,6 @@ impl SubCommand for UpdateIndex {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
         let index_path = gitdir.join("index");
-        //index_path.push("index");
         let mut index = Index::new();
 
         if index_path.exists() {

@@ -59,7 +59,7 @@ use crate::utils::{
 };
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileMode {
     Blob     = 0o100644,
     Tree     = 0o040000,
