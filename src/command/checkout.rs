@@ -36,7 +36,7 @@ impl Checkout {
         let commit_path = gitdir.join("objects").join(&commit_hash[0..2]).join(&commit_hash[2..]);
         let decompressed = decompress_file_bytes(&commit_path)?;
         if let Some(tree_hash) = Checkout::extract_tree_hash(&decompressed) {
-            println!("tree_hash: {}", tree_hash);
+            //println!("tree_hash: {}", tree_hash);
             let tree_path = gitdir.join("objects").join(&tree_hash[0..2]).join(&tree_hash[2..]);
             let tree_data = decompress_file_bytes(&tree_path)?;
 
@@ -53,10 +53,10 @@ impl Checkout {
     fn extract_tree_hash(data: &[u8]) -> Option<String> {
         let mut content = String::from_utf8_lossy(data).to_string();
         content = content.replace("tree ", "\ntree ");
-        // println!("content: {}", content);
+        // //println!("content: {}", content);
         for line in content.lines() {
             if let Some(hash) = line.strip_prefix("tree ") {
-                return Some(hash.to_string()); // 提取 tree_hash
+                return Some(hash.to_string()); 
             }
         }
 
@@ -67,28 +67,14 @@ impl Checkout {
         for entry in &tree.0 {
             let file_path = base_path.join(&entry.path);
 
-            // if let Some(staged_data) = Checkout::get_staged_file(gitdir, &entry.path)?{
-            //     println!("staged_data: {:?}", &staged_data);
-            //     fs::write(&file_path, &staged_data)
-            //         .map_err(|_| GitError::failed_to_write_file(&file_path.to_string_lossy()))?;
-            //     continue;
-            // }
-
             match entry.mode {
                 FileMode::Blob =>{
-                    // if let Some(staged_data) = Checkout::get_staged_file(gitdir, &entry.path)?{
-                    //     println!("staged_data: {:?}", &staged_data);
-                    //     fs::write(&file_path, &staged_data)
-                    //         .map_err(|_| GitError::failed_to_write_file(&file_path.to_string_lossy()))?;
-                    //     continue;
-                    // }
-
                     let blob_path = gitdir.join("objects").join(&entry.hash[0..2]).join(&entry.hash[2..]);
                     let blob_data = decompress_file_bytes(&blob_path)?;
                     let blob = Blob::try_from(blob_data)
                         .map_err(|_| GitError::invalid_command(format!("failed to parse blob data for {}", entry.hash)))?;
                     let content: Vec<u8> = Vec::from(blob);
-                    println!("content: {:?}", content);
+                    //println!("content: {:?}", content);
                     fs::write(&file_path, &content)
                         .map_err(|_| GitError::failed_to_write_file(&file_path.to_string_lossy()))?;
                 }
@@ -139,7 +125,7 @@ impl Checkout {
 
             // 检查工作区中是否存在对应的文件
             if !file_path.exists() {
-                println!("File deleted: {:?}", file_path);
+                //println!("File deleted: {:?}", file_path);
                 return Ok(true); // 文件被删除
             }
 
@@ -150,7 +136,7 @@ impl Checkout {
                 })?;
                 let file_hash = hash_object::<Blob>(file_content)?;
                 if file_hash != entry.hash {
-                    println!("File modified: {:?}", file_path);
+                    //println!("File modified: {:?}", file_path);
                     return Ok(true); // 文件内容不同
                 }
             }
@@ -177,7 +163,7 @@ impl Checkout {
 
             // 检查工作区中是否存在对应的文件
             if !file_path.exists() {
-                println!("File deleted: {:?}", file_path);
+                //println!("File deleted: {:?}", file_path);
                 return Ok(true); // 文件被删除
             }
 
@@ -188,7 +174,7 @@ impl Checkout {
                 })?;
                 let file_hash = hash_object::<Blob>(file_content)?;
                 if file_hash != entry.hash {
-                    println!("File modified: {:?}", file_path);
+                    //println!("File modified: {:?}", file_path);
                     return Ok(true); // 文件内容不同
                 }
             }
@@ -223,13 +209,11 @@ impl Checkout {
             if let Some(index_entry) = index.entries.iter().find(|e| e.name == entry.path.to_string_lossy()) {
                 // 比较 tree 文件的哈希值与 index 中的哈希值
                 if entry.hash != index_entry.hash {
-                    println!("entry.hash: {:?}", entry.hash);
-                    println!("index_entry.hash: {:?}", index_entry.hash);
+                    //println!("entry.hash: {:?}", entry.hash);
+                    //println!("index_entry.hash: {:?}", index_entry.hash);
                     return Ok(true); // 文件内容不同
                 }
             } else {
-                // 如果 tree 中的文件在 index 中不存在
-                println!("File missing in index: {:?}", entry.path);
                 return Ok(true); // 文件缺失
             }
         }
@@ -237,7 +221,7 @@ impl Checkout {
         // 检查 index 中是否有多余的条目
         for index_entry in &index.entries {
             if !tree_paths.contains(&PathBuf::from(&index_entry.name)) {
-                println!("Extra file in index: {:?}", index_entry.name);
+                //println!("Extra file in index: {:?}", index_entry.name);
                 return Ok(true); // 多余的文件
             }
         }
@@ -255,7 +239,7 @@ impl Checkout {
             if let Some(index_entry) = index.entries.iter_mut().find(|e| e.name == entry.path.to_string_lossy()) {
                 // 如果 index 中已存在条目，保留内容不同的原条目
                 if index_entry.hash != entry.hash {
-                    println!("Conflict in index for file: {:?}", entry.path);
+                    //println!("Conflict in index for file: {:?}", entry.path);
                     continue;
                 }
             } else {
@@ -293,7 +277,7 @@ impl Checkout {
                         })?;
                         let file_hash = hash_object::<Blob>(file_content)?;
                         if file_hash != entry.hash {
-                            println!("Conflict in workspace for file: {:?}", file_path);
+                            //println!("Conflict in workspace for file: {:?}", file_path);
                             continue;
                         }
                     }
@@ -345,7 +329,7 @@ impl Checkout {
                         })?;
                         let file_hash = hash_object::<Blob>(file_content)?;
                         if file_hash != entry.hash {
-                            println!("Conflict in workspace for file: {:?}", file_path);
+                            //println!("Conflict in workspace for file: {:?}", file_path);
                             continue;
                         }
                     }
@@ -399,7 +383,7 @@ impl SubCommand for Checkout {
             fs::write(&branch_path, format!("{}\n", commit_hash))
                 .map_err(|_| GitError::failed_to_write_file(&branch_path.to_string_lossy()))?;
             write_head_ref(&gitdir, &format!("refs/heads/{}", self.branch_name))?;
-            println!("Created new branch '{}'", self.branch_name);
+            //println!("Created new branch '{}'", self.branch_name);
             Ok(0)
         }else {
             if !branch_path.exists() {
@@ -429,19 +413,19 @@ impl SubCommand for Checkout {
                 let commit_hash = read_ref_commit(&gitdir, &branch_path.to_string_lossy())?;
 
                 // 如果没有未暂存或未提交的更改
-                println!("No uncommitted changes. Switching branch...");
+                //println!("No uncommitted changes. Switching branch...");
                 write_head_ref(&gitdir, &format!("refs/heads/{}", self.branch_name))?;
                 Checkout::restore_workspace(&gitdir, &commit_hash)?;
                 return Ok(0);
             }
-            println!("workspace_modified: {:?}", workspace_modified);
-            println!("index_modified: {:?}", index_modified);
+            //println!("workspace_modified: {:?}", workspace_modified);
+            //println!("index_modified: {:?}", index_modified);
 
-            println!("Uncommitted changes detected. Attempting to merge changes...");
+            //println!("Uncommitted changes detected. Attempting to merge changes...");
             Checkout::merge_tree_into_index(&gitdir, &tree)?;
             Checkout::merge_index_into_workspace(&gitdir)?;
             write_head_ref(&gitdir, &format!("refs/heads/{}", self.branch_name))?;
-            println!("Switched to branch '{}'", self.branch_name);
+            //println!("Switched to branch '{}'", self.branch_name);
 
             Ok(0)
             

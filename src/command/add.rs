@@ -71,7 +71,7 @@ impl SubCommand for Add {
         if index_file.exists() {
             index.read_from_file(&gitdir.join("index"))?;
         }
-
+        
         let _ = self.walk_path(project_root.to_path_buf())?
             .into_iter()
             .map(|path| -> Result<()> {
