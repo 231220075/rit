@@ -133,6 +133,8 @@ mod test {
     #[test]
     fn test_ppt_add_commit() -> Result<()> {
         let temp_dir = tempdir()?;
+        let project_root = env!("CARGO_MANIFEST_DIR");
+        std::env::set_current_dir(project_root).unwrap();
         let curr_dir = std::env::current_dir().unwrap();
 
         println!("{}", shell_spawn(&["mkdir", temp_dir.path().join("tests").to_str().unwrap()])?);

@@ -48,18 +48,20 @@ impl Rm {
         let paths = self.paths.iter()
             .map(|path|calc_relative_path(&project_root, path))
             .collect::<Result<Vec<_>>>()?;
-
         let possible_dir = paths.iter().filter(|p|p.is_dir()).collect::<Vec<_>>();
         let possible_file = paths.iter().filter(|p|p.is_file()).collect::<Vec<_>>();
 
         if (!self.recursive) && (!possible_dir.is_empty()) {
+            println!("possible_dir = {:?}", possible_dir);
+            
             Err(GitError::not_a_repofile(possible_dir[0]))
         }
+
         else if let Some(path) = possible_file
             .iter()
             .filter(|p| !index.entries.iter().any(|en| en.name == p.to_str().unwrap()))
             .take(1).next()
-        {
+        {   
                     Err(GitError::not_a_repofile(path))
         }
         else {
@@ -86,9 +88,9 @@ impl SubCommand for Rm {
 
         let mut index = Index::new();
         if index_file.exists() {
-            index.read_from_file(&gitdir.join("index"))?;
+            index = index.read_from_file(&gitdir.join("index"))?;
         }
-
+        println!("index_file exists index = {:?}", index);
         let all_paths = self.walks_all_path(project_root.to_path_buf(), &index)?;
         if self.cached {
             all_paths.into_iter()
@@ -103,6 +105,7 @@ impl SubCommand for Rm {
             });
         }
         else {
+            println!("before index = {:?}", index);    
             let mut removed_file = vec![];
             all_paths.into_iter()
             .for_each(|path| {
@@ -121,6 +124,7 @@ impl SubCommand for Rm {
             removed_file.into_iter()
                 .collect::<Result<Vec<_>>>()?;
         }
+        println!("after index = {:?}", index);
         index.write_to_file(&index_file)?;
         Ok(0)
     }

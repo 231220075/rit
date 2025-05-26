@@ -299,10 +299,10 @@ impl SubCommand for Merge {
         let base_hash = Self::first_same_commit(&gitdir, hash1.clone(), hash2.clone())?;
 
         if base_hash == hash2 {
-            println!("it's already latest");
+            //println!("it's already latest");
         }
         else if base_hash == hash1 {
-            println!("fast forward");
+            //println!("fast forward");
             Self::fast_forward(&gitdir, &self.branch)?;
         }
         else {
@@ -348,7 +348,7 @@ impl SubCommand for Merge {
                 commit_hash: merge_hash.clone(),
             };
             update_ref.run(Ok(gitdir.clone()))?;
-            println!("{}", merge_hash);
+            //println!("{}", merge_hash);
 
             let _ = shell_spawn(&["git", "-C", gitdir.parent().unwrap().to_str().unwrap(), "checkout", "."])?;
         }

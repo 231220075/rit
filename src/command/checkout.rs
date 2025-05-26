@@ -220,13 +220,13 @@ impl Checkout {
             if let Some(index_entry) = index.entries.iter().find(|e| e.name == entry.path.to_string_lossy()) {
                 // 比较 tree 文件的哈希值与 index 中的哈希值
                 if entry.hash != index_entry.hash {
-                    //println!("entry.hash: {:?}", entry.hash);
-                    //println!("index_entry.hash: {:?}", index_entry.hash);
+                    println!("entry.hash: {:?}", entry.hash);
+                    println!("index_entry.hash: {:?}", index_entry.hash);
                     return Ok(true); // 文件内容不同
                 }
             } else {
                 // 如果 tree 中的文件在 index 中不存在
-                //println!("File missing in index: {:?}", entry.path);
+                println!("File missing in index: {:?}", entry.path);
                 return Ok(true); // 文件缺失
             }
         }
@@ -234,7 +234,7 @@ impl Checkout {
         // 检查 index 中是否有多余的条目
         for index_entry in &index.entries {
             if !tree_paths.contains(&PathBuf::from(&index_entry.name)) {
-                //println!("Extra file in index: {:?}", index_entry.name);
+                println!("Extra file in index: {:?}", index_entry.name);
                 return Ok(true); // 多余的文件
             }
         }
@@ -596,13 +596,14 @@ impl SubCommand for Checkout {
                         return Err(GitError::invalid_command(format!("already on branch '{}'", commit_or_branch)));
                     }
 
-                    let current_commit_hash = read_ref_commit(&gitdir, &format!{"refs/heads/{}", commit_or_branch})?;
+                    let current_commit_hash = read_ref_commit(&gitdir, &current_ref)?;
                     
                     let (_, tree) = Self::read_commit(&gitdir, &current_commit_hash)?;
 
 
                     let workspace_modified = Self::is_workspace_modified(&gitdir)?;// 检查工作区是否有未暂存的修改
                     let index_modified = Self::is_index_modified(&gitdir, &tree)?;//检查index是否有未commit的修改 
+                    //println!("workspace_modified: {}, index_modified: {}", workspace_modified, index_modified);
                     if !workspace_modified && !index_modified {
                         let commit_hash = read_ref_commit(&gitdir, &branch_path.to_string_lossy())?;
                         // 如果没有未暂存或未提交的更改
@@ -627,7 +628,9 @@ impl SubCommand for Checkout {
                     }
 
                     //println!("Uncommitted changes detected. Attempting to merge changes...");
-                    Checkout::merge_tree_into_index_wrapper(&gitdir, &tree, Path::new(""))?;
+                    let next_commit_hash = read_ref_commit(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
+                    let (_, nexttree) = Self::read_commit(&gitdir, &next_commit_hash)?;
+                    Checkout::merge_tree_into_index_wrapper(&gitdir, &nexttree, Path::new(""))?;
                     Checkout::merge_index_into_workspace(&gitdir)?;
                     write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     //println!("Switched to branch '{}'", commit_or_branch);
