@@ -50,32 +50,32 @@ impl Rm {
             .collect::<Result<Vec<_>>>()?
             .into_iter()
             .unique()
-            .map(|x| {
-                println!("calc_relative_path x = {}", x.display());
-                x
-            })
+            // .map(|x| {
+                // println!("calc_relative_path x = {}", x.display());
+                // x
+            // })
             .collect::<Vec<_>>();
 
         let possible_dir = paths
             .iter()
             .filter(|p|project_root.join(p).is_dir())
-            .map(|x| {
-                println!("possible_dir x = {}", x.display());
-                x
-            })
+            // .map(|x| {
+                // println!("possible_dir x = {}", x.display());
+                // x
+            // })
             .collect::<Vec<_>>();
         let possible_file = paths
             .iter()
             .filter(|p|project_root.join(p).is_file())
             .cloned()
-            .map(|x| {
-                println!("possible_file x = {}", x.display());
-                x
-            })
+            // .map(|x| {
+                // println!("possible_file x = {}", x.display());
+                // x
+            // })
             .collect::<Vec<_>>();
 
         if (!self.recursive) && (!possible_dir.is_empty()) {
-            println!("possible_dir = {:?}", possible_dir);
+            // println!("possible_dir = {:?}", possible_dir);
 
             Err(GitError::not_a_repofile(possible_dir[0]))
         }
@@ -84,7 +84,7 @@ impl Rm {
             .filter(|p| !index.entries.iter().any(|en| en.name == p.to_str().unwrap()))
             .take(1).next()
         {
-            println!("{} 不在index中", path.display());
+            // println!("{} 不在index中", path.display());
                     Err(GitError::not_a_repofile(path))
         }
         else if possible_dir.is_empty() {
@@ -103,10 +103,10 @@ impl Rm {
                 .into_iter()
                 .flatten()
                 .chain(possible_file.into_iter().collect::<Vec<_>>())
-                .map(|x|  {
-                    println!("x = {}", x.display());
-                    x
-                })
+                // .map(|x|  {
+                    // println!("x = {}", x.display());
+                    // x
+                // })
                 .collect::<Vec<_>>())
         }
     }
@@ -122,13 +122,8 @@ impl SubCommand for Rm {
         if index_file.exists() {
             index = index.read_from_file(&gitdir.join("index"))?;
         }
-        println!("index_file exists index = {:?}", index);
-        let all_paths = self.walks_all_path(project_root.to_path_buf(), &index)?
-                .into_iter()
-                .map(|x| {
-                    println!("rm {}", x.display());
-                    x
-                });
+        // println!("index_file exists index = {:?}", index);
+        let all_paths = self.walks_all_path(project_root.to_path_buf(), &index)?;
         if self.cached {
             all_paths.into_iter()
             .for_each(|path| {
@@ -137,16 +132,15 @@ impl SubCommand for Rm {
                     .enumerate()
                     .find(|(_, en)|en.name == path.to_str().unwrap())
                 {
-                    println!("删除{}", path.display());
+                    println!("rm {}", path.display());
                     index.entries.remove(idx);
                 }
                 else {
-                    println!("没找到 {}", path.display());
+                    // println!("没找到 {}", path.display());
                 }
             });
         }
         else {
-            println!("before index = {:?}", index);
             let mut removed_file = vec![];
             all_paths.into_iter()
             .for_each(|path| {
@@ -160,16 +154,15 @@ impl SubCommand for Rm {
                         .map_err(|e|GitError::failed_to_remove_file(format!("unable to remove file {} due to {}", path.clone().display(), e)));
                     removed_file.push(result);
                     index.entries.remove(idx);
-                    println!("删除{}", path.display());
+                    println!("rm {}", path.display());
                 }
                 else {
-                    println!("没找到 {}", path.display());
+                    // println!("没找到 {}", path.display());
                 }
             });
             removed_file.into_iter()
                 .collect::<Result<Vec<_>>>()?;
         }
-        println!("after index = {:?}", index);
         index.write_to_file(&index_file)?;
         Ok(0)
     }
@@ -293,6 +286,7 @@ mod test {
         std::env::set_current_dir(&temp_dir)?;
         let result = shell_spawn(&[curr_dir.join("tests/test_rm").to_str().unwrap()]);
         println!("{}", result?);
+        assert!(false);
         Ok(())
     }
 }

@@ -24,7 +24,10 @@ use crate::utils::{
     hash::hash_object,
     index::IndexEntry,
     commit::Commit,
-    fs::read_object,
+    fs::{
+        read_object,
+        calc_relative_path,
+    }
 };
 
 #[derive(Parser, Debug)]
@@ -220,13 +223,10 @@ impl Checkout {
             if let Some(index_entry) = index.entries.iter().find(|e| e.name == entry.path.to_string_lossy()) {
                 // 比较 tree 文件的哈希值与 index 中的哈希值
                 if entry.hash != index_entry.hash {
-                    println!("entry.hash: {:?}", entry.hash);
-                    println!("index_entry.hash: {:?}", index_entry.hash);
                     return Ok(true); // 文件内容不同
                 }
             } else {
                 // 如果 tree 中的文件在 index 中不存在
-                println!("File missing in index: {:?}", entry.path);
                 return Ok(true); // 文件缺失
             }
         }
@@ -234,7 +234,6 @@ impl Checkout {
         // 检查 index 中是否有多余的条目
         for index_entry in &index.entries {
             if !tree_paths.contains(&PathBuf::from(&index_entry.name)) {
-                println!("Extra file in index: {:?}", index_entry.name);
                 return Ok(true); // 多余的文件
             }
         }
@@ -303,6 +302,12 @@ impl Checkout {
             match entry.mode {
                 0o100644 => {
                     // 如果是文件（blob），处理文件内容
+                    if let Some(parent) = file_path.parent() {
+                    // 确保父目录存在
+                        fs::create_dir_all(parent).map_err(|_| {
+                            GitError::failed_to_write_file(&parent.to_string_lossy())
+                        })?;
+                    }
                     if file_path.exists() {
                         let file_content = fs::read(&file_path).map_err(|_| {
                             GitError::failed_to_read_file(&file_path.to_string_lossy())
@@ -317,6 +322,7 @@ impl Checkout {
                     let blob = Self::read_blob(gitdir, &entry.hash)?;
                     let content: Vec<u8> = Vec::from(blob);
                     fs::write(&file_path, content).map_err(|_| {
+                        println!("Failed to write file");
                         GitError::failed_to_write_file(&file_path.to_string_lossy())
                     })?;
                 }
@@ -555,8 +561,11 @@ impl Checkout {
 impl SubCommand for Checkout {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
-        let mut paths: Vec<PathBuf> = self.paths.iter().map(PathBuf::from).collect();
-
+        //let mut paths: Vec<PathBuf> = self.paths.iter().map(PathBuf::from).collect();
+        let project_root = gitdir.parent().expect("failed to find git dir implementation"). to_path_buf();
+        let mut paths: Vec<PathBuf> = self.paths.iter()
+            .map(|p| calc_relative_path(&project_root, p))
+            .collect::<Result<Vec<_>>>()?; 
         //println!("create_new_branch: {:?}", self.create_new_branch);
         //println!("branch_name_or_commit_hash: {:?}", self.branch_name_or_commit_hash);
         //println!("paths: {:?}", self.paths);
@@ -591,16 +600,15 @@ impl SubCommand for Checkout {
                     paths.push(PathBuf::from(commit_or_branch));
                 }else{
                     let current_ref = read_head_ref(&gitdir)?;
+                    //println!("current_ref: {}", current_ref);
                     if format!("refs/heads/{}", commit_or_branch) == current_ref {
                         return Err(GitError::invalid_command(format!("already on branch '{}'", commit_or_branch)));
                     }
 
                     let current_commit_hash = read_ref_commit(&gitdir, &current_ref)?;
-                    println!("current_commit_hash = {}, ", current_commit_hash);
 
                     let (_, tree) = Self::read_commit(&gitdir, &current_commit_hash)?;
 
-                    println!("current_commit_hash = {}", current_commit_hash);
 
                     let workspace_modified = Self::is_workspace_modified(&gitdir)?;// 检查工作区是否有未暂存的修改
                     let index_modified = Self::is_index_modified(&gitdir, &tree)?;//检查index是否有未commit的修改 
@@ -628,12 +636,14 @@ impl SubCommand for Checkout {
                         return Ok(0);
                     }
 
-                    //println!("Uncommitted changes detected. Attempting to merge changes...");
+                    println!("Uncommitted changes detected. Attempting to merge changes...");
                     let next_commit_hash = read_ref_commit(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     println!("branch_name = {}, next_commit_hash = {}", commit_or_branch, next_commit_hash);
                     let (_, nexttree) = Self::read_commit(&gitdir, &next_commit_hash)?;
                     Checkout::merge_tree_into_index_wrapper(&gitdir, &nexttree, Path::new(""))?;
+                    println!("Merged changes from branch '{}'. Now updating workspace...", commit_or_branch);
                     Checkout::merge_index_into_workspace(&gitdir)?;
+                    println!("Switched to branch '{}'", commit_or_branch);
                     write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     //println!("Switched to branch '{}'", commit_or_branch);
                     return Ok(0);

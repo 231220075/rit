@@ -117,12 +117,12 @@ impl Merge {
     fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str) -> Result<()> {
         // let project_dir = gitdir.as_ref().parent().expect("gitdir 实现错误");
         // let _ = shell_spawn(&["git", "-C", project_dir.to_str().unwrap(), "checkout", branch_name])?;
-
         let checkout = Checkout::from_internal(Some(branch_name.into()), vec![]);
+
         checkout.run(Ok(gitdir.as_ref().to_path_buf()))?;
 
         write_head_ref(gitdir.as_ref(), &format!("refs/heads/{}", branch_name))?;
-        // println!("wirte refs/heads/{} to .git/HEAD", branch_name);
+        println!("wirte refs/heads/{} to .git/HEAD", branch_name);
 
         Ok(())
     }
@@ -357,7 +357,10 @@ impl SubCommand for Merge {
             update_ref.run(Ok(gitdir.clone()))?;
             //println!("{}", merge_hash);
 
-            let _ = shell_spawn(&["git", "-C", gitdir.parent().unwrap().to_str().unwrap(), "checkout", "."])?;
+            // let _ = shell_spawn(&["git", "-C", gitdir.parent().unwrap().to_str().unwrap(), "checkout", "."])?;
+
+            let checkout = Checkout::from_internal(None, vec![".".to_string()]);
+            checkout.run(Ok(gitdir.clone()))?;
         }
         Ok(0)
     }
@@ -537,11 +540,13 @@ mod test {
         let cargo = &["cargo", "run", "--quiet", "--", "-C", temp_path_str2];
         let _ = run_both(test_cmds, git, cargo).unwrap();
 
-        println!("{}", shell_spawn(&["ls", "-lah", temp_path_str1, temp_path1.join(b.to_str().unwrap()).to_str().unwrap()]).unwrap());
+        // println!("{}", shell_spawn(&["ls", "-lah", temp_path_str1, temp_path1.join(b.to_str().unwrap()).to_str().unwrap()]).unwrap());
 
         let origin = shell_spawn(&["git", "-C", temp_path_str1, "ls-files", "--stage"]).unwrap();
         let real = shell_spawn(&["git", "-C", temp_path_str2, "ls-files", "--stage"]).unwrap();
 
+        println!("{origin}");
+        println!("{real}");
         assert_eq!(
             real.split("\n")
                 .into_iter()
@@ -552,6 +557,22 @@ mod test {
                 .sorted()
                 .collect::<String>()
         );
+
+        let origin = shell_spawn(&["find",  temp_path_str1, "-maxdepth", "1", "-type", "f", "-printf", "\"%P\n\""]).unwrap();
+        let real = shell_spawn(&["find",  temp_path_str2, "-maxdepth", "1", "-type", "f", "-printf", "\"%P\n\""]).unwrap();
+        println!("{origin}");
+        println!("{real}");
+        assert_eq!(
+            real.split("\n")
+                .into_iter()
+                .sorted()
+                .collect::<String>(),
+            origin.split("\n")
+                .into_iter()
+                .sorted()
+                .collect::<String>()
+        );
+        // assert!(false);
     }
 
     #[test]
