@@ -31,6 +31,7 @@ hash1=$(/bin/bash -c './rust-git commit -m "Modify delete.txt" 2>&1')
 hash2=$(/bin/bash -c './rust-git commit -m "Delete file" 2>&1')
 # 切换回 main 分⽀
 ./rust-git checkout main
+# sleep 1000
 # 合并 temp 分⽀
 merge_output=$(/bin/bash -c './rust-git merge temp 2>&1')
 # 检查当前⽬录下是否不存在 delete.txt 文件

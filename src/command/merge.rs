@@ -97,14 +97,21 @@ impl Merge {
     }
 
     fn first_same_commit(gitdir: impl AsRef<Path>, hash1: String, hash2: String) -> Result<String> {
-        let ancestor1 = Self::get_all_ancestor(&gitdir, Some(hash1), Vec::new())?;
-        let ancestor2 = Self::get_all_ancestor(&gitdir, Some(hash2), Vec::new())?;
+        let ancestor1 = Self::get_all_ancestor(&gitdir, Some(hash1.clone()), Vec::new())?;
+        let ancestor2 = Self::get_all_ancestor(&gitdir, Some(hash2.clone()), Vec::new())?;
         let index = ancestor1.iter()
             .zip(ancestor2.iter()) // 将两个数组的元素一一配对
             .take_while(|(a, b)| a == b) // 取出相等的元素，直到遇到不相等的为止
             .count();
+        println!("ancestor1 = {:?}", ancestor1);
+        println!("ancestor2 = {:?}", ancestor2);
 
-        Ok(ancestor1[index - 1].clone())
+        if index >= 1 {
+            Ok(ancestor1[index - 1].clone())
+        }
+        else {
+            Err(GitError::no_same_ancestor(format!("can not find same ancestor for {} and {}", hash1, hash2)))
+        }
     }
 
     fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str) -> Result<()> {

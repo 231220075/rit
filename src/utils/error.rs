@@ -28,11 +28,17 @@ pub enum GitError {
     FailedToRmoveFile(String),
     BrokenCommitHistory(String),
     MergeConflict(String),
+    NoSameAncestor(String),
     NoSubCommand,
     NotInGitRepo,
 }
 
 impl GitError {
+    pub fn no_same_ancestor(msg: String) -> Box::<dyn Error> {
+        Box::new(
+            Self::MergeConflict(msg)
+        )
+    }
     pub fn merge_conflict(msg: String) -> Box::<dyn Error> {
         Box::new(
             Self::MergeConflict(msg)
@@ -195,6 +201,7 @@ impl fmt::Display for GitError {
             GitError::NotATTree(msg) => write!(f, "debug Error, should not happen in release: {}", msg),
             GitError::NotACCommit(msg) => write!(f, "debug Error, should not happen in release: {}", msg),
             GitError::MergeConflict(msg) => write!(f, "{}", msg),
+            GitError::NoSameAncestor(msg) => write!(f, "{}", msg),
         }
     }
 }

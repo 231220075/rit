@@ -586,8 +586,7 @@ impl SubCommand for Checkout {
                     }
                     write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     return Ok(0);
-                    
-                    
+
                 }else if !branch_path.exists() {
                     paths.push(PathBuf::from(commit_or_branch));
                 }else{
@@ -597,9 +596,11 @@ impl SubCommand for Checkout {
                     }
 
                     let current_commit_hash = read_ref_commit(&gitdir, &current_ref)?;
-                    
+                    println!("current_commit_hash = {}, ", current_commit_hash);
+
                     let (_, tree) = Self::read_commit(&gitdir, &current_commit_hash)?;
 
+                    println!("current_commit_hash = {}", current_commit_hash);
 
                     let workspace_modified = Self::is_workspace_modified(&gitdir)?;// 检查工作区是否有未暂存的修改
                     let index_modified = Self::is_index_modified(&gitdir, &tree)?;//检查index是否有未commit的修改 
@@ -629,6 +630,7 @@ impl SubCommand for Checkout {
 
                     //println!("Uncommitted changes detected. Attempting to merge changes...");
                     let next_commit_hash = read_ref_commit(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
+                    println!("branch_name = {}, next_commit_hash = {}", commit_or_branch, next_commit_hash);
                     let (_, nexttree) = Self::read_commit(&gitdir, &next_commit_hash)?;
                     Checkout::merge_tree_into_index_wrapper(&gitdir, &nexttree, Path::new(""))?;
                     Checkout::merge_index_into_workspace(&gitdir)?;

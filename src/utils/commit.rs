@@ -109,7 +109,7 @@ impl From<Commit> for Vec<u8> {
             parent_line,
             commit.author,
             commit.committer,
-            commit.message,
+            if commit.message.ends_with("\n") {commit.message} else {format!("{}\n", commit.message)},
         ).into_bytes()
     }
 }

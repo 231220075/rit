@@ -273,7 +273,7 @@ impl TryFrom<Vec<u8>> for Tree {
     fn try_from(bytes: Vec<u8>) -> result::Result<Self, Self::Error> {
         let (entrys, _) = parse_meta(bytes.as_slice()).map_err(GitError::invalid_tree)?;
 
-        let (_, entrys_str) = terminated(many1(TreeEntry::parse_from_bytes), eof)
+        let (_, entrys_str) = terminated(many0(TreeEntry::parse_from_bytes), eof)
             .parse(entrys)
             .map_err(GitError::invalid_entry)?;
         let entrys = entrys_str

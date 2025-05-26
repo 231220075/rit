@@ -31,16 +31,19 @@ pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
     let output = Command::new(command)
         .args(&command_list[1..])
         .output()
-        .map_err(|e| format!("Failed to execute command '{}': {}", command, e))?;
+        .map_err(|e| {
+            println!("{}", format!("Failed to execute command '{}': {}", command, e));
+            "".to_string()
+        })?;
 
     // 检查命令的退出状态
     if !output.status.success() {
-        Err(format!(
-            "Command '{}' failed with exit code: {:?}, output: {}",
+        println!("{}", format!(
+            "Command '{}' failed with exit code: {:?}, output: ",
             command_list.iter().join(" "),
-            output.status.code(),
-            String::from_utf8_lossy(&output.stderr).into_owned() + &String::from_utf8_lossy(&output.stdout)
-        ))
+            output.status.code()
+        ) + &String::from_utf8_lossy(&output.stderr).into_owned() + &String::from_utf8_lossy(&output.stdout));
+        Err("".into())
     }
     else {
         // 将 stdout 转换为 String
