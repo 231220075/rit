@@ -76,6 +76,26 @@ impl Checkout {
 
     pub fn restore_workspace(gitdir: &PathBuf, commit_hash: &str) -> Result<()> {
         let (_, tree) = Self::read_commit(gitdir, commit_hash)?;
+
+                // 获取当前 index
+        let index_path = gitdir.join("index");
+        let index = Index::new().read_from_file(&index_path).map_err(|_| {
+            GitError::failed_to_read_file(&index_path.to_string_lossy())
+        })?;
+
+        // 删除 index 中记录的所有文件
+        for entry in &index.entries {
+            let file_path = gitdir.parent().unwrap().join(&entry.name);
+            if file_path.is_file() {
+                fs::remove_file(&file_path).map_err(|_| {
+                    GitError::failed_to_write_file(&file_path.to_string_lossy())
+                })?;
+            } else if file_path.is_dir() {
+                fs::remove_dir_all(&file_path).map_err(|_| {
+                    GitError::failed_to_write_file(&file_path.to_string_lossy())
+                })?;
+            }
+        }
         Checkout::restore_tree(gitdir, &PathBuf::from("."), &tree)?;
         Ok(())
     }
@@ -95,6 +115,7 @@ impl Checkout {
 
     fn restore_tree(gitdir: &PathBuf, base_path:&Path, tree: &Tree) -> Result<()> {
         for entry in &tree.0 {
+            //println!("entry: {:?}", entry);
             let file_path = base_path.join(&entry.path);
 
             match entry.mode {
@@ -613,6 +634,7 @@ impl SubCommand for Checkout {
                     let workspace_modified = Self::is_workspace_modified(&gitdir)?;// 检查工作区是否有未暂存的修改
                     let index_modified = Self::is_index_modified(&gitdir, &tree)?;//检查index是否有未commit的修改 
                     //println!("workspace_modified: {}, index_modified: {}", workspace_modified, index_modified);
+                    //println!("commit_or_branch: {}", commit_or_branch); 
                     if !workspace_modified && !index_modified {
                         let commit_hash = read_ref_commit(&gitdir, &branch_path.to_string_lossy())?;
                         // 如果没有未暂存或未提交的更改
@@ -625,23 +647,22 @@ impl SubCommand for Checkout {
                             Checkout::extract_tree_hash(&decompressed)
                                 .ok_or_else(|| GitError::invalid_command(format!("commit {} does not contain a tree", commit_hash)))?
                         };
-
+                        Checkout::restore_workspace(&gitdir, &commit_hash)?;
                         // 使用 ReadTree 恢复索引
                         let read_tree = ReadTree {
                             prefix: None, 
                             tree_hash: tree_hash.clone(),
                         };
                         read_tree.run(Ok(gitdir.clone()))?;
-                        Checkout::restore_workspace(&gitdir, &commit_hash)?;
                         return Ok(0);
                     }
 
-                    println!("Uncommitted changes detected. Attempting to merge changes...");
+                    //println!("Uncommitted changes detected. Attempting to merge changes...");
                     let next_commit_hash = read_ref_commit(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
-                    println!("branch_name = {}, next_commit_hash = {}", commit_or_branch, next_commit_hash);
+                    //println!("branch_name = {}, next_commit_hash = {}", commit_or_branch, next_commit_hash);
                     let (_, nexttree) = Self::read_commit(&gitdir, &next_commit_hash)?;
                     Checkout::merge_tree_into_index_wrapper(&gitdir, &nexttree, Path::new(""))?;
-                    println!("Merged changes from branch '{}'. Now updating workspace...", commit_or_branch);
+                   // println!("Merged changes from branch '{}'. Now updating workspace...", commit_or_branch);
                     Checkout::merge_index_into_workspace(&gitdir)?;
                     println!("Switched to branch '{}'", commit_or_branch);
                     write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;

@@ -286,7 +286,6 @@ mod test {
         std::env::set_current_dir(&temp_dir)?;
         let result = shell_spawn(&[curr_dir.join("tests/test_rm").to_str().unwrap()]);
         println!("{}", result?);
-        assert!(false);
         Ok(())
     }
 }
