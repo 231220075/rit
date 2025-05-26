@@ -24,7 +24,10 @@ use crate::utils::{
     hash::hash_object,
     index::IndexEntry,
     commit::Commit,
-    fs::read_object,
+    fs::{
+        read_object,
+        calc_relative_path,
+    }
 };
 
 #[derive(Parser, Debug)]
@@ -303,6 +306,12 @@ impl Checkout {
             match entry.mode {
                 0o100644 => {
                     // 如果是文件（blob），处理文件内容
+                    if let Some(parent) = file_path.parent() {
+                    // 确保父目录存在
+                        fs::create_dir_all(parent).map_err(|_| {
+                            GitError::failed_to_write_file(&parent.to_string_lossy())
+                        })?;
+                    }
                     if file_path.exists() {
                         let file_content = fs::read(&file_path).map_err(|_| {
                             GitError::failed_to_read_file(&file_path.to_string_lossy())
@@ -317,6 +326,7 @@ impl Checkout {
                     let blob = Self::read_blob(gitdir, &entry.hash)?;
                     let content: Vec<u8> = Vec::from(blob);
                     fs::write(&file_path, content).map_err(|_| {
+                        println!("Failed to write file");
                         GitError::failed_to_write_file(&file_path.to_string_lossy())
                     })?;
                 }
@@ -555,8 +565,11 @@ impl Checkout {
 impl SubCommand for Checkout {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
-        let mut paths: Vec<PathBuf> = self.paths.iter().map(PathBuf::from).collect();
-
+        //let mut paths: Vec<PathBuf> = self.paths.iter().map(PathBuf::from).collect();
+        let project_root = gitdir.parent().expect("failed to find git dir implementation"). to_path_buf();
+        let mut paths: Vec<PathBuf> = self.paths.iter()
+            .map(|p| calc_relative_path(&project_root, p))
+            .collect::<Result<Vec<_>>>()?; 
         //println!("create_new_branch: {:?}", self.create_new_branch);
         //println!("branch_name_or_commit_hash: {:?}", self.branch_name_or_commit_hash);
         //println!("paths: {:?}", self.paths);
@@ -592,6 +605,7 @@ impl SubCommand for Checkout {
                     paths.push(PathBuf::from(commit_or_branch));
                 }else{
                     let current_ref = read_head_ref(&gitdir)?;
+                    //println!("current_ref: {}", current_ref);
                     if format!("refs/heads/{}", commit_or_branch) == current_ref {
                         return Err(GitError::invalid_command(format!("already on branch '{}'", commit_or_branch)));
                     }
@@ -627,11 +641,13 @@ impl SubCommand for Checkout {
                         return Ok(0);
                     }
 
-                    //println!("Uncommitted changes detected. Attempting to merge changes...");
+                    println!("Uncommitted changes detected. Attempting to merge changes...");
                     let next_commit_hash = read_ref_commit(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     let (_, nexttree) = Self::read_commit(&gitdir, &next_commit_hash)?;
                     Checkout::merge_tree_into_index_wrapper(&gitdir, &nexttree, Path::new(""))?;
+                    println!("Merged changes from branch '{}'. Now updating workspace...", commit_or_branch);
                     Checkout::merge_index_into_workspace(&gitdir)?;
+                    println!("Switched to branch '{}'", commit_or_branch);
                     write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     //println!("Switched to branch '{}'", commit_or_branch);
                     return Ok(0);

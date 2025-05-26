@@ -110,12 +110,12 @@ impl Merge {
     fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str) -> Result<()> {
         // let project_dir = gitdir.as_ref().parent().expect("gitdir 实现错误");
         // let _ = shell_spawn(&["git", "-C", project_dir.to_str().unwrap(), "checkout", branch_name])?;
-
         let checkout = Checkout::from_internal(Some(branch_name.into()), vec![]);
+        
         checkout.run(Ok(gitdir.as_ref().to_path_buf()))?;
 
         write_head_ref(gitdir.as_ref(), &format!("refs/heads/{}", branch_name))?;
-        // println!("wirte refs/heads/{} to .git/HEAD", branch_name);
+        println!("wirte refs/heads/{} to .git/HEAD", branch_name);
 
         Ok(())
     }
