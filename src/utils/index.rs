@@ -37,13 +37,19 @@ pub struct Index {
     pub entries: Vec<IndexEntry>,
 }
 
+impl Default for Index {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Index {
     pub fn new() -> Self {
         Index { entries: Vec::new() }
     }
 
-    pub fn add_entry(&mut self, entry: IndexEntry) {
-        self.entries.push(entry);
+    pub fn add_entry(&mut self, new_entry: IndexEntry) {
+        self.entries.push(new_entry);
     }
 
     pub fn write_to_file(&self, path: &Path) -> std::io::Result<()> {
@@ -78,6 +84,7 @@ impl Index {
         buffer.extend_from_slice(&(self.entries.len() as u32).to_be_bytes());
 
         for entry in &self.entries {
+            // println!("write {} to file {}", entry.name, path.display());
             buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime
             buffer.extend_from_slice(&0u32.to_be_bytes()); // ctime_nsec
             buffer.extend_from_slice(&0u32.to_be_bytes()); // mtime

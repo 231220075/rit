@@ -21,10 +21,10 @@ use super::SubCommand;
 #[command(name = "read-tree", about = "create a tree object according to the current index")]
 pub struct ReadTree {
     #[arg(long, help = "Prefix to add to all paths in the tree")]
-    prefix: Option<String>,
+    pub prefix: Option<String>,
 
     #[arg(required = true, help = "tree hash")]
-    tree_hash: String,
+    pub tree_hash: String,
 
 }
 

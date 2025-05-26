@@ -10,6 +10,10 @@ use crate::{
         WriteTree, CommitTree, UpdateRef
     },
     utils:: {
+        commit,
+        tree::Tree,
+        index::Index,
+        fs::write_object,
         refs::{
             read_head_ref, read_ref_commit
         },
@@ -44,18 +48,24 @@ impl Commit {
 impl SubCommand for Commit {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
+        let index_path = gitdir.join("index");
 
-        let tree_hash = WriteTree::lazy_fucker(gitdir.clone())?;
+        let index = Index::new();
+        let tree: Tree = index.read_from_file(&index_path)?.into();
+        let tree_hash = write_object::<Tree>(gitdir.clone(), tree.into())?;
 
         let head_ref = read_head_ref(&gitdir)?;
         let parent_commit = read_ref_commit(&gitdir, &head_ref).ok();
-        let commit_tree = CommitTree {
+
+        let commit = commit::Commit {
             tree_hash,
+            parent_hash: if parent_commit.is_none() {vec![]} else { vec![parent_commit.unwrap()] },
+            author: "Default Author <139881912@163.com> 1748165415 +0800".into(),
+            committer: "commiter Author <139881912@163.com> 1748165415 +0800".into(),
             message: self.message.clone().unwrap(),
-            pcommit: parent_commit,
         };
 
-        let commit_hash = commit_tree.asshole(gitdir.clone())?;
+        let commit_hash = write_object::<commit::Commit>(gitdir.clone(), commit.into())?;
 
         let update_ref = UpdateRef {
             ref_path: head_ref,

@@ -56,6 +56,10 @@ use crate::utils::{
         GitError,
         Result
     },
+    index::{
+        Index,
+        IndexEntry,
+    },
 };
 
 
@@ -164,9 +168,9 @@ impl TreeEntry {
         mode.to_string()
             .into_bytes()
             .into_iter()
-            .chain(b" ".into_iter().cloned())
+            .chain(b" ".iter().cloned())
             .chain(path)
-            .chain(b"\0".into_iter().cloned())
+            .chain(b"\0".iter().cloned())
             .chain(hash)
     }
 
@@ -182,8 +186,8 @@ impl TreeEntry {
                 .into_iter()
                 .flatten()
                 .map(|TreeEntry{mode, hash, path}| TreeEntry {
-                    mode: mode,
-                    hash: hash,
+                    mode,
+                    hash,
                     path: self.path.join(path)
                 })
                 .collect::<Vec<_>>()),
@@ -192,6 +196,16 @@ impl TreeEntry {
     }
 }
 
+
+impl From<IndexEntry> for TreeEntry {
+    fn from(entry: IndexEntry) -> Self {
+        Self {
+            mode: entry.mode.try_into().unwrap(),
+            hash: entry.hash,
+            path: PathBuf::from(entry.name),
+        }
+    }
+}
 
 impl TryFrom<&[u8]> for TreeEntry {
     type Error = Box<dyn Error>;
@@ -314,5 +328,16 @@ impl Deref for Tree {
 impl DerefMut for Tree {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<Index> for Tree {
+    fn from(index: Index) -> Self {
+        Self(
+            index.entries
+            .into_iter()
+            .map(|x|x.into())
+            .collect::<Vec<_>>()
+        )
     }
 }

@@ -86,7 +86,7 @@ impl TryFrom<Vec<u8>> for Commit {
             .collect::<Result<Vec<_>>>()?;
         Ok(Commit {
             tree_hash:   String::from_utf8(tree_hash.to_vec())?,
-            parent_hash: parent_hash,
+            parent_hash,
             author:      String::from_utf8(author.to_vec())?,
             committer:   String::from_utf8(committer.to_vec())?,
             message:     String::from_utf8(message.to_vec())?,
