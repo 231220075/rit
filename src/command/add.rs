@@ -82,11 +82,12 @@ impl SubCommand for Add {
         let _ = self.walk_path(project_root.to_path_buf())?
             .into_iter()
             .map(|path| -> Result<()> {
-                if let Some(i) = index.entries.iter().position(|en|en.name == path.display().to_string()) {
-                    index.entries[i] = add_object::<Blob>(gitdir.clone(), path)?
+                let path_string = path.display().to_string();
+                if let Some(i) = index.entries.iter().position(|en|en.name == path_string) {
+                    index.entries[i] = add_object::<Blob>(gitdir.clone(), path.clone())?
                 }
                 else {
-                    index.add_entry(add_object::<Blob>(gitdir.clone(), path)?);
+                    index.add_entry(add_object::<Blob>(gitdir.clone(), path.clone())?);
                 }
                 Ok(())
             })

@@ -176,7 +176,7 @@ impl TreeEntry {
 
     fn into_iter_flatten(self, gitdir: PathBuf) -> Result<Vec<Self>> {
         let obj = read_obj(gitdir.clone(), &self.hash)?;
-        println!("self = {}", self);
+        // println!("self = {}", self);
         match obj {
             Obj::B(_) => Ok(vec![self]),
             Obj::T(tree) => Ok(tree.0

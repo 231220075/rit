@@ -132,7 +132,7 @@ impl SubCommand for Rm {
                     .enumerate()
                     .find(|(_, en)|en.name == path.to_str().unwrap())
                 {
-                    println!("rm {}", path.display());
+                    // println!("rm {}", path.display());
                     index.entries.remove(idx);
                 }
                 else {
@@ -154,7 +154,7 @@ impl SubCommand for Rm {
                         .map_err(|e|GitError::failed_to_remove_file(format!("unable to remove file {} due to {}", path.clone().display(), e)));
                     removed_file.push(result);
                     index.entries.remove(idx);
-                    println!("rm {}", path.display());
+                    // println!("rm {}", path.display());
                 }
                 else {
                     // println!("没找到 {}", path.display());

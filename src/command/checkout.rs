@@ -664,7 +664,7 @@ impl SubCommand for Checkout {
                     Checkout::merge_tree_into_index_wrapper(&gitdir, &nexttree, Path::new(""))?;
                    // println!("Merged changes from branch '{}'. Now updating workspace...", commit_or_branch);
                     Checkout::merge_index_into_workspace(&gitdir)?;
-                    println!("Switched to branch '{}'", commit_or_branch);
+                    // println!("Switched to branch '{}'", commit_or_branch);
                     write_head_ref(&gitdir, &format!("refs/heads/{}", commit_or_branch))?;
                     //println!("Switched to branch '{}'", commit_or_branch);
                     return Ok(0);

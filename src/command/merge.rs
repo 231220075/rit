@@ -35,6 +35,7 @@ use crate::utils::{
         write_branch_commit,
         write_head_ref,
         read_head_ref,
+        read_branch_commit,
     },
     index::{
         Index,
@@ -103,8 +104,8 @@ impl Merge {
             .zip(ancestor2.iter()) // 将两个数组的元素一一配对
             .take_while(|(a, b)| a == b) // 取出相等的元素，直到遇到不相等的为止
             .count();
-        println!("ancestor1 = {:?}", ancestor1);
-        println!("ancestor2 = {:?}", ancestor2);
+        // println!("ancestor1 = {:?}", ancestor1);
+        // println!("ancestor2 = {:?}", ancestor2);
 
         if index >= 1 {
             Ok(ancestor1[index - 1].clone())
@@ -122,7 +123,9 @@ impl Merge {
         checkout.run(Ok(gitdir.as_ref().to_path_buf()))?;
 
         write_head_ref(gitdir.as_ref(), &format!("refs/heads/{}", branch_name))?;
-        println!("wirte refs/heads/{} to .git/HEAD", branch_name);
+        // println!("wirte refs/heads/{} to .git/HEAD", branch_name);
+        // let hash = read_branch_commit(gitdir.as_ref(), branch_name)?;
+        // println!("{hash}");
 
         Ok(())
     }
@@ -244,10 +247,10 @@ impl Merge {
                     .into_iter()
                     .for_each(|v| {
                         if v.len() == 1 {
-                            println!("{}: {}", a.path.display(), v[0]);
+                            println!("Merge confilict in {}: {}", a.path.display(), v[0]);
                         }
                         else {
-                            println!("{}: [{}, {}]", a.path.display(), v[0], v[v.len() - 1]);
+                            println!("Merge confilict in {}: [{}, {}]", a.path.display(), v[0], v[v.len() - 1]);
                         }
                     });
                 Err(GitError::merge_conflict(format!("two branch merge conflict in {}", a.path.display())))

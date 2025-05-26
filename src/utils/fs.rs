@@ -148,12 +148,16 @@ where
 
         let iter_dirs = pathbufs.into_iter()
             .filter(|x|x.is_dir())
+            .filter(|x| {
+                !x.strip_prefix(&path).unwrap().starts_with(".git")
+            })
             .map(walk)
             .collect::<Result<Vec<_>>>()
             .map(|x|x.into_iter().flatten());
 
         iter_dirs
             .map(|x|x.into_iter().chain(files).collect::<Vec<_>>())
+
     }
     else {
         Ok([path.as_ref().to_path_buf()].to_vec())

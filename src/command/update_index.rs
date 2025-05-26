@@ -148,9 +148,9 @@ mod tests {
         assert!(result.is_ok());
 
         // 验证索引文件是否写入
-        println!("Index path: {:?}", index_path); // 调试输出
-        println!("courrent dir: {:?}", std::env::current_dir()); // 调试输出
-        println!("Index path exists: {:?}", index_path.exists()); // 调试输出
+        // println!("Index path: {:?}", index_path); // 调试输出
+        // println!("courrent dir: {:?}", std::env::current_dir()); // 调试输出
+        // println!("Index path exists: {:?}", index_path.exists()); // 调试输出
         assert!(index_path.exists());
         let index_content = fs::read(&index_path).unwrap();
         assert!(!index_content.is_empty());

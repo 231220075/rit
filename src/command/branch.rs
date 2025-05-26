@@ -63,9 +63,9 @@ impl SubCommand for Branch {
                 let entry = entry?;
                 let name = entry.file_name().to_string_lossy().to_string();
                 if format!("refs/heads/{}", name) == current_ref {
-                    //println!("* {}", name);
+                    // println!("* {}", name);
                 } else {
-                    //println!("  {}", name);
+                    // println!("  {}", name);
                 }
             }
         }
