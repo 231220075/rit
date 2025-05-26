@@ -546,4 +546,18 @@ mod test {
                 .collect::<String>()
         );
     }
+
+    #[test]
+    fn test_ppt_merge() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let curr_dir = std::env::current_dir().unwrap();
+
+        shell_spawn(&["mkdir", temp_dir.path().join("tests").to_str().unwrap()])?;
+        shell_spawn(&["cp", curr_dir.join("target/debug/git").to_str().unwrap(), temp_dir.path().join("tests").join("rust-git").to_str().unwrap()])?;
+        shell_spawn(&["chmod", "a+x", temp_dir.path().join("tests").join("rust-git").to_str().unwrap()])?;
+
+        std::env::set_current_dir(&temp_dir)?;
+        println!("output = {}", shell_spawn(&[curr_dir.join("tests/test_merge").to_str().unwrap()])?);
+        Ok(())
+    }
 }

@@ -137,8 +137,8 @@ where
 {
     if path.as_ref().is_dir() {
         let pathbufs = path.as_ref()
-            .read_dir()?
-            .map(|x| x.map(|x|x.path()) .map_err(GitError::no_permision))
+            .read_dir().map_err(GitError::no_permision)?
+            .map(|x| x.map(|x|x.path()).map_err(GitError::no_permision))
             .collect::<Result<Vec<_>>>()?;
 
         let files = pathbufs.iter()
@@ -167,14 +167,18 @@ where
     M: AsRef<Path>,
 {
     let dir_path = dir.as_ref().to_path_buf();
-    let abs = dir_path.join(path.as_ref()).canonicalize()?;
+    let abs = dir_path
+        .join(path.as_ref())
+        .canonicalize()
+        .map_err(|x|GitError::not_a_repofile(path.as_ref().to_path_buf().display().to_string() + " " + &x.to_string()))?;
+
     if dir.as_ref() == abs {
         Ok(PathBuf::from("."))
     }
     else if dir_path.join(&abs) == abs {
         abs.strip_prefix(dir.as_ref())
             .map(|x|x.to_path_buf())
-            .map_err(|x|GitError::not_a_repofile(x.to_string()))
+            .map_err(|x|GitError::not_a_repofile(abs.display().to_string() + " " + &x.to_string()))
     }
     else {
         Err(GitError::not_a_repofile(path.as_ref()))
