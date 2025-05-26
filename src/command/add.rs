@@ -32,6 +32,10 @@ use crate::{
 
 use super::SubCommand;
 
+fn output(input: &str) -> result::Result<PathBuf, String> {
+    println!("input = {}", input);
+    Ok(PathBuf::from(input))
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "add", about = "将文件内容添加到索引中")]
@@ -39,7 +43,7 @@ pub struct Add {
     #[arg(short = 'n', long = "dry-run", help = "dry run", action = clap::ArgAction::SetTrue, required = false)]
     dry_run: bool,
 
-    #[arg(required = true, num_args = 1..)]
+    #[arg(required = true, num_args = 1.., value_parser=output)]
     paths: Vec<PathBuf>,
 }
 
@@ -73,7 +77,7 @@ impl SubCommand for Add {
             index = index.read_from_file(&index_file)?;
         }
 
-        // println!("index_file exists index = {:?}", index);
+        println!("index_file exists index = {:?}", index);
 
         let _ = self.walk_path(project_root.to_path_buf())?
             .into_iter()

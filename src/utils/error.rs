@@ -185,7 +185,7 @@ impl fmt::Display for GitError {
             GitError::InvalidCommit(msg) => write!(f, "{}", msg),
             GitError::InvaildPathEncoding(path) => write!(f, "invalid path encoding: {}", path),
             GitError::NoPermision(msg) => write!(f, "no access permission: {}", msg),
-            GitError::NotARepoFile(path) => write!(f, "{} not in git repo", path),
+            GitError::NotARepoFile(path) => write!(f, "found a file not in git repo {}", path),
             GitError::FailedToReadFile(path) => write!(f, "failed to read file: {}", path),
             GitError::FailedToWriteFile(path) => write!(f, "failed to write file: {}", path),
             GitError::FailedToRmoveFile(msg) => write!(f, "{}", msg),

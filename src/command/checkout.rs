@@ -23,7 +23,6 @@ use crate::utils::{
     hash::hash_object,
     index::IndexEntry,
     commit::Commit,
-    test::{shell_spawn, setup_test_git_dir},
     fs::read_object,
 };
 
@@ -616,111 +615,133 @@ impl SubCommand for Checkout {
 
 
 
+#[cfg(test)]
+mod test {
+    use crate::utils::test::{
+        shell_spawn, setup_test_git_dir,
+        tempdir,
+    };
+    use super::*;
 
-#[test]
-fn test_checkout_single_file() {
-    let repo = setup_test_git_dir();
+    #[test]
+    fn test_checkout_single_file() {
+        let repo = setup_test_git_dir();
 
-    // 创建文件并提交
-    let file_path = repo.path().join("foo.txt");
-    std::fs::write(&file_path, "hello").unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "add foo"]).unwrap();
+        // 创建文件并提交
+        let file_path = repo.path().join("foo.txt");
+        std::fs::write(&file_path, "hello").unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "add foo"]).unwrap();
 
-    // 修改文件内容
-    std::fs::write(&file_path, "changed").unwrap();
+        // 修改文件内容
+        std::fs::write(&file_path, "changed").unwrap();
 
-    // 执行 checkout 恢复文件
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", "foo.txt"]).unwrap();
+        // 执行 checkout 恢复文件
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", "foo.txt"]).unwrap();
 
-    // 验证文件内容是否恢复
-    let content = std::fs::read_to_string(&file_path).unwrap();
-    assert_eq!(content, "hello");
-}
+        // 验证文件内容是否恢复
+        let content = std::fs::read_to_string(&file_path).unwrap();
+        assert_eq!(content, "hello");
+    }
 
-#[test]
-fn test_checkout_entire_directory() {
-    let repo = setup_test_git_dir();
+    #[test]
+    fn test_checkout_entire_directory() {
+        let repo = setup_test_git_dir();
 
-    // 创建目录和文件并提交
-    let dir_path = repo.path().join("dir");
-    std::fs::create_dir_all(&dir_path).unwrap();
-    std::fs::write(dir_path.join("a.txt"), "A").unwrap();
-    std::fs::write(dir_path.join("b.txt"), "B").unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "add dir"]).unwrap();
+        // 创建目录和文件并提交
+        let dir_path = repo.path().join("dir");
+        std::fs::create_dir_all(&dir_path).unwrap();
+        std::fs::write(dir_path.join("a.txt"), "A").unwrap();
+        std::fs::write(dir_path.join("b.txt"), "B").unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "add dir"]).unwrap();
 
-    // 修改文件内容
-    std::fs::write(dir_path.join("a.txt"), "X").unwrap();
-    std::fs::write(dir_path.join("b.txt"), "Y").unwrap();
+        // 修改文件内容
+        std::fs::write(dir_path.join("a.txt"), "X").unwrap();
+        std::fs::write(dir_path.join("b.txt"), "Y").unwrap();
 
-    // 执行 checkout 恢复目录
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", "dir"]).unwrap();
+        // 执行 checkout 恢复目录
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", "dir"]).unwrap();
 
-    // 验证文件内容是否恢复
-    let content_a = std::fs::read_to_string(dir_path.join("a.txt")).unwrap();
-    let content_b = std::fs::read_to_string(dir_path.join("b.txt")).unwrap();
-    assert_eq!(content_a, "A");
-    assert_eq!(content_b, "B");
-}
+        // 验证文件内容是否恢复
+        let content_a = std::fs::read_to_string(dir_path.join("a.txt")).unwrap();
+        let content_b = std::fs::read_to_string(dir_path.join("b.txt")).unwrap();
+        assert_eq!(content_a, "A");
+        assert_eq!(content_b, "B");
+    }
 
-#[test]
-fn test_checkout_file_from_commit() {
-    let repo = setup_test_git_dir();
+    #[test]
+    fn test_checkout_file_from_commit() {
+        let repo = setup_test_git_dir();
 
-    // 创建文件并提交两次
-    let file_path = repo.path().join("foo.txt");
-    std::fs::write(&file_path, "v1").unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c1"]).unwrap();
-    std::fs::write(&file_path, "v2").unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c2"]).unwrap();
+        // 创建文件并提交两次
+        let file_path = repo.path().join("foo.txt");
+        std::fs::write(&file_path, "v1").unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c1"]).unwrap();
+        std::fs::write(&file_path, "v2").unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "foo.txt"]).unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c2"]).unwrap();
 
-    // 获取第一个提交的哈希
-    let commit1 = shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "rev-parse", "HEAD~1"])
-        .unwrap()
-        .trim()
-        .to_string();
+        // 获取第一个提交的哈希
+        let commit1 = shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "rev-parse", "HEAD~1"])
+            .unwrap()
+            .trim()
+            .to_string();
 
-    // 修改文件内容
-    std::fs::write(&file_path, "changed").unwrap();
+        // 修改文件内容
+        std::fs::write(&file_path, "changed").unwrap();
 
-    // 执行 checkout 恢复文件到第一个提交的状态
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", &commit1, "--", "foo.txt"]).unwrap();
+        // 执行 checkout 恢复文件到第一个提交的状态
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", &commit1, "--", "foo.txt"]).unwrap();
 
-    // 验证文件内容是否恢复
-    let content = std::fs::read_to_string(&file_path).unwrap();
-    assert_eq!(content, "v1");
-}
+        // 验证文件内容是否恢复
+        let content = std::fs::read_to_string(&file_path).unwrap();
+        assert_eq!(content, "v1");
+    }
 
-#[test]
-fn test_checkout_directory_from_commit() {
-    let repo = setup_test_git_dir();
+    #[test]
+    fn test_checkout_directory_from_commit() {
+        let repo = setup_test_git_dir();
 
-    // 创建目录和文件并提交两次
-    let dir_path = repo.path().join("dir");
-    std::fs::create_dir_all(&dir_path).unwrap();
-    std::fs::write(dir_path.join("a.txt"), "A1").unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c1"]).unwrap();
-    std::fs::write(dir_path.join("a.txt"), "A2").unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c2"]).unwrap();
+        // 创建目录和文件并提交两次
+        let dir_path = repo.path().join("dir");
+        std::fs::create_dir_all(&dir_path).unwrap();
+        std::fs::write(dir_path.join("a.txt"), "A1").unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c1"]).unwrap();
+        std::fs::write(dir_path.join("a.txt"), "A2").unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "add", "."]).unwrap();
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "commit", "-m", "c2"]).unwrap();
 
-    // 获取第一个提交的哈希
-    let commit1 = shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "rev-parse", "HEAD~1"])
-        .unwrap()
-        .trim()
-        .to_string();
+        // 获取第一个提交的哈希
+        let commit1 = shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "rev-parse", "HEAD~1"])
+            .unwrap()
+            .trim()
+            .to_string();
 
-    // 修改文件内容
-    std::fs::write(dir_path.join("a.txt"), "changed").unwrap();
+        // 修改文件内容
+        std::fs::write(dir_path.join("a.txt"), "changed").unwrap();
 
-    // 执行 checkout 恢复目录到第一个提交的状态
-    shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", &commit1, "--", "dir"]).unwrap();
+        // 执行 checkout 恢复目录到第一个提交的状态
+        shell_spawn(&["git", "-C", repo.path().to_str().unwrap(), "checkout", &commit1, "--", "dir"]).unwrap();
 
-    // 验证文件内容是否恢复
-    let content_a = std::fs::read_to_string(dir_path.join("a.txt")).unwrap();
-    assert_eq!(content_a, "A1");
+        // 验证文件内容是否恢复
+        let content_a = std::fs::read_to_string(dir_path.join("a.txt")).unwrap();
+        assert_eq!(content_a, "A1");
+    }
+
+    #[test]
+    fn test_ppt_checkout() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let curr_dir = std::env::current_dir().unwrap();
+
+        println!("{}", shell_spawn(&["mkdir", temp_dir.path().join("tests").to_str().unwrap()])?);
+        println!("{}", shell_spawn(&["cp", curr_dir.join("target/debug/git").to_str().unwrap(), temp_dir.path().join("tests/rust-git").to_str().unwrap()])?);
+        println!("{}", shell_spawn(&["chmod", "a+x", temp_dir.path().join("tests").join("rust-git").to_str().unwrap()])?);
+
+        std::env::set_current_dir(&temp_dir)?;
+        println!("output = {}", shell_spawn(&[curr_dir.join("tests/test_branch_checkout").to_str().unwrap()])?);
+        Ok(())
+    }
 }

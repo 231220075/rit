@@ -128,4 +128,21 @@ mod test {
         let real = shell_spawn(&["git", "-C", temp_path_str2, "symbolic-ref", "HEAD"]).unwrap();
         assert_eq!(origin, real);
     }
+
+
+    #[test]
+    fn test_ppt_add_commit() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let curr_dir = std::env::current_dir().unwrap();
+
+        println!("{}", shell_spawn(&["mkdir", temp_dir.path().join("tests").to_str().unwrap()])?);
+        println!("{}", shell_spawn(&["cp", curr_dir.join("target/debug/git").to_str().unwrap(), temp_dir.path().join("tests/rust-git").to_str().unwrap()])?);
+        println!("{}", shell_spawn(&["cp", curr_dir.join("tests/test2.png").to_str().unwrap(), temp_dir.path().join("tests/test.png").to_str().unwrap()])?);
+        println!("{}", shell_spawn(&["cp", curr_dir.join("tests/test2.png").to_str().unwrap(), temp_dir.path().join("tests/git.png").to_str().unwrap()])?);
+        println!("{}", shell_spawn(&["chmod", "a+x", temp_dir.path().join("tests").join("rust-git").to_str().unwrap()])?);
+
+        std::env::set_current_dir(&temp_dir)?;
+        println!("output = {}", shell_spawn(&[curr_dir.join("tests/test_add_commit").to_str().unwrap()])?);
+        Ok(())
+    }
 }
