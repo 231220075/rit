@@ -122,8 +122,8 @@ impl Merge {
 
         write_head_ref(gitdir.as_ref(), &format!("refs/heads/{}", branch_name))?;
         // println!("wirte refs/heads/{} to .git/HEAD", branch_name);
-        // let hash = read_branch_commit(gitdir.as_ref(), branch_name)?;
-        // println!("{hash}");
+        let hash = read_branch_commit(gitdir.as_ref(), branch_name)?;
+        println!("{hash}");
 
         Ok(())
     }
@@ -188,10 +188,17 @@ impl Merge {
         let diff = TextDiff::from_lines(original, modified);
 
         let mut ranges: Vec<Vec<usize>> = vec![];
-        diff.iter_all_changes()
-            .filter(|x| !matches!(x.tag(), ChangeTag::Equal))
-            .flat_map(|change|change.old_index())
+        let acc = diff.iter_all_changes()
+            // .map(|x| {
+                // println!("tag = {:?}", x.tag());
+                // x
+            // })
+            .filter(|x| !matches!(x.tag(), ChangeTag::Insert))
+            .enumerate()
+            .filter(|(_, x)| matches!(x.tag(), ChangeTag::Delete))
+            .map(|(x, _)|x + 1)
             .fold(Vec::new(), |mut acc, ele| {
+                // println!("ele = {}", ele);
                 if (acc.is_empty()) || (acc[acc.len() - 1] + 1 == ele) {
                     acc.push(ele);
                     // println!("add {} to {:?}", ele, acc);
@@ -203,6 +210,8 @@ impl Merge {
                     vec![ele]
                 }
             });
+        ranges.push(acc);
+        // println!("{:?}", ranges);
         ranges
     }
 
@@ -241,17 +250,19 @@ impl Merge {
                 let b_blob = String::from_utf8(read_object::<Blob>(gitdir.clone(), &b.hash)?.into())?;
                 Self::save_conflict_object(index, gitdir.clone(), &a, &b, &a_blob, &b_blob)?;
 
-                Self::diff_text(&a_blob, &b_blob)
+                let output = Self::diff_text(&a_blob, &b_blob)
                     .into_iter()
-                    .for_each(|v| {
+                    .map(|v| {
                         if v.len() == 1 {
-                            println!("Merge confilict in {}: {}", a.path.display(), v[0]);
+                            format!("Merge conflict in {}: {}", a.path.display(), v[0])
                         }
                         else {
-                            println!("Merge confilict in {}: [{}, {}]", a.path.display(), v[0], v[v.len() - 1]);
+                            format!("Merge conflict in {}: [{}, {}]", a.path.display(), v[0], v[v.len() - 1])
                         }
-                    });
-                Err(GitError::merge_conflict(format!("two branch merge conflict in {}", a.path.display())))
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                Err(GitError::merge_conflict(output))
             })
             .partition(|x: &Result<_>|x.is_ok());
 
@@ -260,7 +271,15 @@ impl Merge {
                 .fold(Err(GitError::merge_conflict("".to_string())), |acc, ele: Result<()>| {
                     match (acc, ele) {
                         (Err(a), Err(b)) => {
-                            Err(GitError::merge_conflict(a.to_string() + "\n" + &b.to_string()))
+                            Err(GitError::merge_conflict( {
+                                let out = a.to_string() + "\n" + &b.to_string();
+                                if out.starts_with("\n") {
+                                    out.strip_prefix("\n").unwrap().to_string()
+                                }
+                                else {
+                                    out
+                                }
+                            }))
                         },
                         _ => Ok(())
                     }
