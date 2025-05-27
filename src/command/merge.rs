@@ -1,6 +1,7 @@
 use std::fs::write;
 use std::iter::Peekable;
 use std::io;
+use std::cmp::min;
 use std::path::{
     Path,
     PathBuf
@@ -32,6 +33,7 @@ use crate::utils::{
     refs::{
         head_to_hash,
         read_ref_commit,
+        write_ref_commit,
         write_branch_commit,
         write_head_ref,
         read_head_ref,
@@ -113,16 +115,12 @@ impl Merge {
         }
     }
 
-    fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str) -> Result<()> {
-        // let project_dir = gitdir.as_ref().parent().expect("gitdir 实现错误");
-        // let _ = shell_spawn(&["git", "-C", project_dir.to_str().unwrap(), "checkout", branch_name])?;
-        let checkout = Checkout::from_internal(Some(branch_name.into()), vec![]);
-
-        checkout.run(Ok(gitdir.as_ref().to_path_buf()))?;
-
-        write_head_ref(gitdir.as_ref(), &format!("refs/heads/{}", branch_name))?;
-        // println!("wirte refs/heads/{} to .git/HEAD", branch_name);
+    fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str, original_branch: &str) -> Result<()> {
         let hash = read_branch_commit(gitdir.as_ref(), branch_name)?;
+        Checkout::restore_workspace(&gitdir.as_ref().to_path_buf(), &hash)?;
+
+        write_ref_commit(gitdir.as_ref(), original_branch, &hash)?;
+        // write_head_ref(gitdir.as_ref(), original_branch)?;
         println!("{hash}");
 
         Ok(())
@@ -134,8 +132,6 @@ impl Merge {
     {
         let head_a = a.peek();
         let head_b = b.peek();
-        // println!("head_a = {:?}", head_a);
-        // println!("head_b = {:?}", head_b);
         match (head_a, head_b) {
             (None, None) => (None, None),
             (Some(_), None) => (Some(a.collect::<Vec<_>>()), None),
@@ -185,33 +181,52 @@ impl Merge {
     }
 
     fn diff_text(original: &str, modified: &str) -> Vec<Vec<usize>> {
-        let diff = TextDiff::from_lines(original, modified);
+        let origin = original.split("\n")
+            .collect::<Vec<_>>();
+        let modify = modified.split("\n")
+            .collect::<Vec<_>>();
+
+        let (origin_len, modify_len) = (origin.len(), modify.len());
+        let minimal = min(origin_len, modify_len);
+        let (origin, ori_rest) = origin.split_at(minimal);
+        let (modify, mod_rest) = modify.split_at(minimal);
+        // println!("ori_rest = {:?}, mod_rest = {:?}", ori_rest, mod_rest);
+
+        let original = origin.iter().cloned().map(String::from);
+        let modified = modify.iter().cloned().map(String::from);
 
         let mut ranges: Vec<Vec<usize>> = vec![];
-        let acc = diff.iter_all_changes()
-            // .map(|x| {
-                // println!("tag = {:?}", x.tag());
-                // x
-            // })
-            .filter(|x| !matches!(x.tag(), ChangeTag::Insert))
+        let acc = original.zip(modified)
+            .map(|(a, b)| (a == b) as u32)
             .enumerate()
-            .filter(|(_, x)| matches!(x.tag(), ChangeTag::Delete))
-            .map(|(x, _)|x + 1)
+            .filter(|(_, x)| *x == 0)
+            .map(|(i, _)| i + 1)
             .fold(Vec::new(), |mut acc, ele| {
-                // println!("ele = {}", ele);
                 if (acc.is_empty()) || (acc[acc.len() - 1] + 1 == ele) {
                     acc.push(ele);
-                    // println!("add {} to {:?}", ele, acc);
                     acc
                 }
                 else {
-                    // println!("found {} append {:?} to ranges", ele, acc);
                     ranges.push(acc);
                     vec![ele]
                 }
             });
-        ranges.push(acc);
-        // println!("{:?}", ranges);
+
+        if acc.len() != 0 {
+            ranges.push(acc);
+        }
+        if ori_rest.len() > mod_rest.len() {
+            ranges.push(vec![minimal + 1, minimal + mod_rest.len() - 1]);
+        }
+        else if ori_rest.len() < mod_rest.len() {
+            ranges.push(vec![minimal + 1, minimal + ori_rest.len() - 1]);
+        }
+        else if ori_rest.len() == 1 {
+            ranges.push(vec![minimal + 1]);
+        }
+        else if ori_rest.len() != 0 {
+            ranges.push(vec![minimal + 1, minimal + ori_rest.len() - 1]);
+        }
         ranges
     }
 
@@ -253,6 +268,7 @@ impl Merge {
                 let output = Self::diff_text(&a_blob, &b_blob)
                     .into_iter()
                     .map(|v| {
+                        // println!("v.len() = {}", v.len());
                         if v.len() == 1 {
                             format!("Merge conflict in {}: {}", a.path.display(), v[0])
                         }
@@ -330,7 +346,8 @@ impl SubCommand for Merge {
         }
         else if base_hash == hash1 {
             //println!("fast forward");
-            Self::fast_forward(&gitdir, &self.branch)?;
+            let original_branch = read_head_ref(&gitdir)?;
+            Self::fast_forward(&gitdir, &self.branch, &original_branch)?;
         }
         else {
             // | --- | base  | a     | b     |
@@ -377,10 +394,7 @@ impl SubCommand for Merge {
             update_ref.run(Ok(gitdir.clone()))?;
             println!("{}", merge_hash);
 
-            // let _ = shell_spawn(&["git", "-C", gitdir.parent().unwrap().to_str().unwrap(), "checkout", "."])?;
-
-            let checkout = Checkout::from_internal(None, vec![".".to_string()]);
-            checkout.run(Ok(gitdir.clone()))?;
+            Checkout::restore_workspace(&gitdir, &merge_hash)?;
         }
         Ok(0)
     }

@@ -198,7 +198,7 @@ impl Checkout {
             }
 
             // 如果是文件（blob），计算文件哈希并比较
-            if entry.mode == 0o100644{
+            if entry.mode == 0o100644 {
                 let file_content = fs::read(&file_path).map_err(|_| {
                     GitError::failed_to_read_file(&file_path.to_string_lossy())
                 })?;

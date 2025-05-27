@@ -29,15 +29,9 @@ $GIT branch A
 # 切换到 A 分⽀
 $GIT checkout A
 # 创建 main.txt 文件并添加内容
-echo "C" >| main.txt
-echo "A" >> main.txt
-echo "C" >> main.txt
-echo "A" >> main.txt
-echo "A" >> main.txt
-echo "A" >> main.txt
-echo "C" >> main.txt
+echo "A branch a" >| a.txt
 # 添加并提交 main.txt
-$GIT add main.txt
+$GIT add a.txt
 hash1=$(/bin/bash -c "$GIT commit -m 'modify A main.txt' 2>&1")
 
 $GIT checkout main
@@ -46,16 +40,10 @@ $GIT branch B
 # 切换到 B 分⽀
 $GIT checkout B
 # 创建 main.txt 文件并添加内容
-echo "C" >| main.txt
-echo "B" >> main.txt
-echo "C" >> main.txt
-echo "B" >> main.txt
-echo "B" >> main.txt
-echo "B" >> main.txt
-echo "C" >> main.txt
-# 添加并提交 main.txt
-$GIT add main.txt
-hash1=$(/bin/bash -c "$GIT commit -m 'modify B main.txt' 2>&1")
+echo "B branch file" >| file.txt
+# 添加并提交 file.txt
+$GIT add file.txt
+hash1=$(/bin/bash -c "$GIT commit -m 'add B file.txt' 2>&1")
 
 # 切换回 A 分⽀
 $GIT checkout A
