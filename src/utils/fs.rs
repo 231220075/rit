@@ -2,10 +2,11 @@ use std::{
     error::Error,
     env::current_dir,
     io::{BufReader, Read},
-    fs::{read, File},
+    fs::{read, File, OpenOptions},
     path::{PathBuf, Path},
 };
 
+use jemallocator;
 use crate::{
     GitError,
     Result,
@@ -30,6 +31,13 @@ use super::{
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt; // 用于操作 Unix 文件权限
+
+#[global_allocator]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
+
+const SIZE: usize = 100 * 1024 * 1024; // 1 MB
+const DATA: [u8; SIZE] = [b'A'; SIZE]; // 生成一个包含 1 MB 'A' 字符的 Vec<u8>v
 
 fn is_executable(file_path: impl AsRef<Path>) -> Result<bool> {
     let metadata = fs::metadata(file_path)
@@ -63,7 +71,10 @@ pub fn read_file_as_bytes<T>(file_path: &T) -> Result<Vec<u8>>
 where T: AsRef<Path>
 {
     // 使用 fs::read 读取文件内容为字节数组
-    Ok(read(file_path)?)
+    let mut f = OpenOptions::new().read(true).open(file_path)?;
+    let mut bytes = vec![];
+    f.read_to_end(&mut bytes)?;
+    Ok(bytes)
 }
 
 pub fn read_file_as_reader<T>(file_path: &T) -> Result<impl Read>
@@ -202,4 +213,51 @@ where
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::{
+        thread,
+        time::Duration,
+        write,
+        io::Write,
+    };
+    use crate::utils::{
+        fs::read_file_as_bytes,
+        test::{
+            shell_spawn,
+            setup_test_git_dir,
+            touch_file_in,
+            mktemp_in,
+            tempdir,
+            time_it,
+        },
+    };
 
+
+    #[test]
+    fn test_read_100m() -> Result<()> {
+        let temp_dir = tempdir()?;
+        let mut temp = touch_file_in(&temp_dir)?;
+        let f = temp.as_file_mut();
+        f.write_all(&DATA)?;
+
+        let python_duration = time_it(|| {
+            let code = format!("print(len(open('{}').read()))", temp.path().display());
+            println!("{}", shell_spawn(&["python", "-c", &code])?);
+            Ok(())
+        })?;
+
+        let rust_duration = time_it(|| {
+            let bytes = read_file_as_bytes(&temp.path())?;
+            println!("{}", bytes.len());
+            Ok(())
+        })?;
+
+        println!("temp = {:?}", temp_dir);
+        println!("temp = {:?}", temp);
+        println!("python:  {}, rust: {}", python_duration, rust_duration);
+        assert!(false);
+        Ok(())
+    }
+}

@@ -1,4 +1,5 @@
 use std::{
+    time::Instant,
     mem,
     io::{
         self,
@@ -24,6 +25,16 @@ use itertools::Itertools;
 use crate::utils::{
     error,
 };
+
+pub fn time_it<F>(func: F) -> crate::Result<u128>
+where
+    F: Fn() -> crate::Result<()>
+{
+    let before = Instant::now();
+    func()?;
+    Ok(before.elapsed().as_millis())
+
+}
 
 pub fn shell_spawn(command_list: &[&str]) -> Result<String,String> {
     let command = command_list[0];
