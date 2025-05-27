@@ -51,7 +51,7 @@ fn restore_tree_to_index(gitdir: &Path, tree_hash: &str, prefix: &str, index: &m
                 };
                 restore_tree_to_index(gitdir, &entry.hash, &sub_prefix, index)?;
             }
-            FileMode::Blob | FileMode::Commit | FileMode::Symbolic => {
+            FileMode::Exec | FileMode::Blob | FileMode::Commit | FileMode::Symbolic => {
                 // 普通文件、可执行文件、符号链接
                 let file_path = if prefix.is_empty() {
                     entry.path.to_str().unwrap().to_string()

@@ -28,6 +28,19 @@ use super::{
     tree::FileMode,
 };
 
+use std::fs;
+use std::os::unix::fs::PermissionsExt; // 用于操作 Unix 文件权限
+
+fn is_executable(file_path: impl AsRef<Path>) -> Result<bool> {
+    let metadata = fs::metadata(file_path)
+        .map_err(|e|GitError::no_permision(e))?;
+
+    let permissions = metadata.permissions();
+
+    let mode = permissions.mode();
+    Ok(mode & 0o111 != 0) // 检查用户、组或其他用户的可执行位是否被设置
+}
+
 
 /*  check the whether s exists in git's objects directory  */
 pub fn obj_to_pathbuf(s: &str) -> std::result::Result<PathBuf, String> {
@@ -120,7 +133,7 @@ where
     T: ObjType,
 {
     let project_root = gitdir.parent().expect("find git implementation fail").to_path_buf();
-    let mode = T::MODE;
+    let mode = if is_executable(project_root.join(&path))? { FileMode::Exec as u32 } else { T::MODE };
     let hash = write_object::<T>(gitdir, read_file_as_bytes(&project_root.join(&path))?)?;
     let path = String::from(path.as_ref().to_str().unwrap());
     Ok(IndexEntry {

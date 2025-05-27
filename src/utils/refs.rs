@@ -30,6 +30,20 @@ pub fn write_head_ref(gitdir: &Path, ref_path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn write_head_commit(gitdir: &Path, hash: &str) -> Result<()> {
+    let head_file = gitdir.join("HEAD");
+    fs::write(&head_file, format!("{}\n", hash))
+        .map_err(|_| GitError::failed_to_write_file(&head_file.to_string_lossy()))?;
+    Ok(())
+}
+
+pub fn read_head_commit(gitdir: &Path) -> Result<String> {
+    let head_path = gitdir.join("HEAD");
+    let content = fs::read_to_string(&head_path)
+        .map_err(|_| GitError::FileNotFound(head_path.display().to_string()))?;
+    Ok(content.trim().to_string())
+}
+
 /// read from / write to .git/{refname}
 /// content is 20 bytes commit hash, such as fbb2fa502d19588f97190d8c89643aad3e533bb8
 pub fn read_ref_commit(gitdir: &Path, refname: &str) -> Result<String> {

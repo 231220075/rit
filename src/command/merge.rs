@@ -104,8 +104,6 @@ impl Merge {
             .zip(ancestor2.iter()) // 将两个数组的元素一一配对
             .take_while(|(a, b)| a == b) // 取出相等的元素，直到遇到不相等的为止
             .count();
-        // println!("ancestor1 = {:?}", ancestor1);
-        // println!("ancestor2 = {:?}", ancestor2);
 
         if index >= 1 {
             Ok(ancestor1[index - 1].clone())
@@ -358,7 +356,7 @@ impl SubCommand for Merge {
                 commit_hash: merge_hash.clone(),
             };
             update_ref.run(Ok(gitdir.clone()))?;
-            //println!("{}", merge_hash);
+            println!("{}", merge_hash);
 
             // let _ = shell_spawn(&["git", "-C", gitdir.parent().unwrap().to_str().unwrap(), "checkout", "."])?;
 

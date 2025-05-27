@@ -8,10 +8,23 @@ use crate::{
     command::ReadTree,
     GitError,
     Result,
-    utils::refs::{read_head_ref, write_head_ref, read_ref_commit, write_ref_commit},
+    utils::refs::{
+        read_head_ref,
+        write_head_ref,
+        read_ref_commit,
+        write_ref_commit,
+        write_head_commit,
+        read_head_commit,
+    },
 };
 use super::SubCommand;
-use std::fs;
+use std::{
+    fs,
+    fs::File,
+    io::Write,
+    os::unix::fs::PermissionsExt,
+};
+
 use crate::utils::{
     tree::{
         Tree,
@@ -25,6 +38,7 @@ use crate::utils::{
     index::IndexEntry,
     commit::Commit,
     fs::{
+        write_object,
         read_object,
         calc_relative_path,
     }
@@ -125,6 +139,17 @@ impl Checkout {
                     //println!("content: {:?}", content);
                     fs::write(&file_path, content)
                         .map_err(|_| GitError::failed_to_write_file(&file_path.to_string_lossy()))?;
+                },
+                FileMode::Exec =>{
+                    let blob = Self::read_blob(gitdir, &entry.hash)?;
+                    let content: Vec<u8> = blob.into();
+                    let mut file = File::create(&file_path)?;
+                    file.write_all(&content)?;
+
+                    let mut permissions = file.metadata()?.permissions();
+                    permissions.set_mode(FileMode::Exec as u32); // 设置权限为 rwxr-xr-x (八进制表示)
+                    file.set_permissions(permissions)?;
+
                 },
                 FileMode::Tree => {
                     fs::create_dir_all(&file_path)
@@ -592,12 +617,14 @@ impl SubCommand for Checkout {
         //println!("paths: {:?}", self.paths);
         if let Some(ref commit_or_branch) = self.branch_name_or_commit_hash {
             if commit_or_branch == "HEAD" || commit_or_branch.len() == 40 {
+                // println!("checkout from commit {}", commit_or_branch);
                 let commit_hash = if commit_or_branch == "HEAD" {
                     read_ref_commit(&gitdir, &read_head_ref(&gitdir)?)?
                 } else {
                     commit_or_branch.clone()
                 };
                 Checkout::restore_from_commit(&gitdir, &commit_hash, &paths)?;
+                write_head_commit(&gitdir, &commit_hash)?;
             }
             else{
                 //切换分支逻辑

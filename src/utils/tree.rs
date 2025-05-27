@@ -65,6 +65,7 @@ use crate::utils::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileMode {
+    Exec     = 0o100755,
     Blob     = 0o100644,
     Tree     = 0o040000,
     Commit   = 0o160000,
@@ -75,7 +76,7 @@ impl fmt::Display for FileMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}",
             match self {
-                FileMode::Blob => "blob",
+                FileMode::Blob | FileMode::Exec => "blob",
                 FileMode::Tree => "tree",
                 FileMode::Commit => "commit",
                 FileMode::Symbolic => "symbolic",
@@ -88,6 +89,7 @@ impl TryFrom<u32> for FileMode {
 
     fn try_from(integer: u32) -> result::Result<Self, Self::Error> {
         match integer {
+            0o100755 => Ok(FileMode::Exec),
             0o100644 => Ok(FileMode::Blob),
             0o40000  => Ok(FileMode::Tree),
             0o160000 => Ok(FileMode::Commit),
@@ -101,6 +103,7 @@ impl From<FileMode> for &'static str {
 
     fn from(mode: FileMode) -> &'static str {
         match mode {
+            FileMode::Exec     => "100755",
             FileMode::Blob     => "100644",
             FileMode::Tree     => "040000",
             FileMode::Commit   => "160000",
@@ -115,6 +118,7 @@ impl TryFrom<&[u8]> for FileMode {
     fn try_from(bytes: &[u8]) -> result::Result<Self, Self::Error> {
         let mode = String::from_utf8(bytes.to_vec())?;
         match mode.as_str() {
+            "100755" => Ok(FileMode::Exec),
             "100644" => Ok(FileMode::Blob),
             "40000"  => Ok(FileMode::Tree),
             "160000" => Ok(FileMode::Commit),
