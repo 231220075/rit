@@ -344,9 +344,11 @@ impl SubCommand for Merge {
         let hash1 = head_to_hash(&gitdir)?;
         let hash2 = if self.branch.starts_with("refs/") {
             // 如果已经是完整的引用路径，直接使用
+            println!("Using existing ref: {}", self.branch);
             read_ref_commit(&gitdir, &self.branch)?
         } else {
             // 否则假设是分支名，添加 refs/heads/ 前缀
+            println!("Using branch name: {}", self.branch);
             read_ref_commit(&gitdir, &format!("refs/heads/{}", self.branch))?
         };
         let base_hash = Self::first_same_commit(&gitdir, hash1.clone(), hash2.clone())?;

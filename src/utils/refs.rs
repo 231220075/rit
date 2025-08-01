@@ -61,11 +61,23 @@ pub fn write_ref_commit(gitdir: &Path, ref_path: &str, hash: &str) -> Result<()>
 }
 
 pub fn read_branch_commit(gitdir: &Path, branch: &str) -> Result<String> {
-    read_ref_commit(gitdir, &format!("refs/heads/{}", branch))
+    if branch.starts_with("refs/") {
+        // 如果已经是完整的引用路径，直接使用
+        read_ref_commit(gitdir, branch)
+    } else {
+        // 如果是简单的分支名，添加 refs/heads/ 前缀
+        read_ref_commit(gitdir, &format!("refs/heads/{}", branch))
+    }
 }
 
 pub fn write_branch_commit(gitdir: &Path, branch: &str, hash: &str) -> Result<()> {
-    write_ref_commit(gitdir, &format!("refs/heads/{}", branch), hash)
+    if branch.starts_with("refs/") {
+        // 如果已经是完整的引用路径，直接使用
+        write_ref_commit(gitdir, branch, hash)
+    } else {
+        // 如果是简单的分支名，添加 refs/heads/ 前缀
+        write_ref_commit(gitdir, &format!("refs/heads/{}", branch), hash)
+    }
 }
 
 pub fn head_to_hash(gitdir: &Path) -> Result<String> {
