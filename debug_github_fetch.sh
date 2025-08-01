@@ -12,12 +12,12 @@ echo "1. 初始化仓库..."
 
 echo "2. 配置远程仓库..."
 echo '[remote "origin"]
-    url = https://github.com/231220075/rit.git
+    url = https://github.com/231220075/git.git
     fetch = +refs/heads/*:refs/remotes/origin/*' > .git/config
 
 echo "3. 先测试引用发现..."
 echo "使用 curl 测试 GitHub 的 info/refs 端点："
-curl -s "https://github.com/231220075/rit.git/info/refs?service=git-upload-pack" | head -10
+curl -s "https://github.com/231220075/git.git/info/refs?service=git-upload-pack" | head -10
 
 echo ""
 echo "4. 运行详细的 fetch..."
