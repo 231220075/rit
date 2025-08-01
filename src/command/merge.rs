@@ -116,18 +116,28 @@ impl Merge {
         }
     }
 
-    fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str, original_branch: &str) -> Result<()> {
-        let hash = read_branch_commit(gitdir.as_ref(), branch_name)?;
+fn fast_forward(gitdir: impl AsRef<Path>, branch_name: &str, original_branch: &str) -> Result<()> {
+    let hash = read_branch_commit(gitdir.as_ref(), branch_name)?;
+    println!("Fast-forward: target hash = {}", hash);
 
-        let checkout = Checkout::from_internal(Some(branch_name.to_string()), vec![]);
-        checkout.run(Ok(gitdir.as_ref().to_path_buf()))?;
-
-        write_ref_commit(gitdir.as_ref(), original_branch, &hash)?;
-        write_head_ref(gitdir.as_ref(), original_branch)?;
-        println!("{hash}");
-
-        Ok(())
+    println!("Fast-forward: updating working directory to {}", branch_name);
+    let checkout = Checkout::from_internal(Some(branch_name.to_string()), vec![]);
+    let checkout_result = checkout.run(Ok(gitdir.as_ref().to_path_buf()));
+    
+    if let Err(e) = &checkout_result {
+        println!("Checkout failed: {}", e);
+        return checkout_result.map(|_| ());
+    } else {
+        println!("Checkout succeeded");
     }
+
+    println!("Fast-forward: updating branch reference");
+    write_ref_commit(gitdir.as_ref(), original_branch, &hash)?;
+    write_head_ref(gitdir.as_ref(), original_branch)?;
+    println!("Successfully fast-forwarded to {}", hash);
+
+    Ok(())
+}
 
     fn diff_array<T>(mut a: Peekable<T>, mut b: Peekable<T>) -> Diffence
     where
@@ -344,24 +354,23 @@ impl SubCommand for Merge {
         let hash1 = head_to_hash(&gitdir)?;
         let hash2 = if self.branch.starts_with("refs/") {
             // 如果已经是完整的引用路径，直接使用
-            println!("Using existing ref: {}", self.branch);
             read_ref_commit(&gitdir, &self.branch)?
         } else {
             // 否则假设是分支名，添加 refs/heads/ 前缀
-            println!("Using branch name: {}", self.branch);
             read_ref_commit(&gitdir, &format!("refs/heads/{}", self.branch))?
         };
         let base_hash = Self::first_same_commit(&gitdir, hash1.clone(), hash2.clone())?;
 
         if base_hash == hash2 {
-            //println!("it's already latest");
+            println!("it's already latest");
         }
         else if base_hash == hash1 {
-            //println!("fast forward");
+            println!("fast forward");
             let original_branch = read_head_ref(&gitdir)?;
             Self::fast_forward(&gitdir, &self.branch, &original_branch)?;
         }
         else {
+            println!("merge");
             // | --- | base  | a     | b     |
             // | --- | ---   | ---   | ---   |
             // | 1   | True  | True  | True  |
