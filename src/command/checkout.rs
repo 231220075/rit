@@ -275,12 +275,12 @@ impl Checkout {
                     if let Some(index_entry) = index.entries.iter().find(|e| e.name == entry_path.to_string_lossy()) {
                         // 比较 tree 文件的哈希值与 index 中的哈希值
                         if entry.hash != index_entry.hash {
-                            println!("Index modified for file: {:?}", entry_path);
+                            //println!("Index modified for file: {:?}", entry_path);
                             return Ok(true); // 文件内容不同
                         }
                     } else {
                         // 如果 tree 中的文件在 index 中不存在
-                        println!("Index missing for file: {:?}", entry_path);
+                        //println!("Index missing for file: {:?}", entry_path);
                         return Ok(true); // 文件缺失
                     }
                 }
@@ -288,7 +288,7 @@ impl Checkout {
                     // 对于目录，递归检查其内容
                     let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
                     if Self::is_index_modified_for_tree(gitdir, &sub_tree, &entry_path, index)? {
-                        println!("Index modified for tree: {:?}", entry_path);
+                        //println!("Index modified for tree: {:?}", entry_path);
                         return Ok(true);
                     }
                 }
@@ -718,12 +718,12 @@ impl SubCommand for Checkout {
                     }
 
                     let current_commit_hash = read_ref_commit(&gitdir, &current_ref)?;
-                    println!("Current commit hash: {}", current_commit_hash);
+                    //println!("Current commit hash: {}", current_commit_hash);
                     let (_, tree) = Self::read_commit(&gitdir, &current_commit_hash)?;
 
                     let workspace_modified = Self::is_workspace_modified(&gitdir)?;
                     let index_modified = Self::is_index_modified(&gitdir, &tree)?;
-                    println!("Workspace modified: {}, Index modified: {}", workspace_modified, index_modified);
+                    //println!("Workspace modified: {}, Index modified: {}", workspace_modified, index_modified);
 
                     if !workspace_modified && !index_modified {
                         let commit_hash = read_ref_commit(&gitdir, &ref_path)?;

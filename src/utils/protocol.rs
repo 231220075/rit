@@ -109,12 +109,12 @@ impl GitProtocol {
         }
         
         // 读取引用包
-        let mut packet_count = 0;
+        //let mut packet_count = 0;
         while pos < body_bytes.len() {
             if let Some(packet_data) = self.read_pkt_line(&body_bytes, &mut pos) {
-                packet_count += 1;
+                //packet_count += 1;
                 if packet_data.is_empty() {
-                    println!("DEBUG: Found final flush packet at packet {}", packet_count);
+                    //println!("DEBUG: Found final flush packet at packet {}", packet_count);
                 break;
             }
             
@@ -133,7 +133,7 @@ impl GitProtocol {
                     let hash = parts[0].to_string();
                     let ref_name = parts[1].to_string();
                     
-                    println!("DEBUG: Found ref: {} -> {}", ref_name, hash);
+                    //println!("DEBUG: Found ref: {} -> {}", ref_name, hash);
                     
                     // 处理peeled引用（^{}）
                     if ref_name.ends_with("^{}") {
@@ -153,7 +153,7 @@ impl GitProtocol {
                 }
             }
             
-        println!("DEBUG: Total refs found: {}", refs.len());
+        //println!("DEBUG: Total refs found: {}", refs.len());
         for r in &refs {
             println!("DEBUG: Ref: {} -> {}", r.name, r.hash);
         }
@@ -197,16 +197,16 @@ impl GitProtocol {
         let mut wants = Vec::new();
         
         //println!("DEBUG: calculate_wants called with {} refs, {} wanted_refs", refs.len(), wanted_refs.len());
-        for r in refs {
-            println!("DEBUG: Available ref: {}", r.name);
-        }
+        //for r in refs {
+            //println!("DEBUG: Available ref: {}", r.name);
+        //}
         
         if wanted_refs.is_empty() {
             // 如果没有指定特定引用，获取所有heads
             for ref_info in refs {
                 if ref_info.name.starts_with("refs/heads/") {
                     wants.push(ref_info.hash.clone());
-                    println!("DEBUG: Want ref: {} -> {}", ref_info.name, ref_info.hash);
+                    //println!("DEBUG: Want ref: {} -> {}", ref_info.name, ref_info.hash);
                 }
             }
         } else {
@@ -214,7 +214,7 @@ impl GitProtocol {
             for wanted in wanted_refs {
                 if let Some(ref_info) = refs.iter().find(|r| r.name == *wanted) {
                     wants.push(ref_info.hash.clone());
-                    println!("DEBUG: Want specific ref: {} -> {}", ref_info.name, ref_info.hash);
+                    //println!("DEBUG: Want specific ref: {} -> {}", ref_info.name, ref_info.hash);
                 }
             }
         }
@@ -280,7 +280,7 @@ impl GitProtocol {
         let body = response.bytes()
             .map_err(|e| GitError::network_error(format!("Failed to read packfile: {}", e)))?;
         
-        println!("DEBUG: Response body length: {}", body.len());
+        //println!("DEBUG: Response body length: {}", body.len());
         if body.len() > 0 {
             //println!("DEBUG: First 100 bytes: {:?}", &body[..std::cmp::min(100, body.len())]);
         }
