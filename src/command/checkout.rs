@@ -261,30 +261,47 @@ impl Checkout {
             GitError::failed_to_read_file(&index_path.to_string_lossy())
         })?;
 
-        // 创建一个集合存储 tree 中的所有文件路径
-        let tree_paths: std::collections::HashSet<_> = tree.0.iter().map(|entry| &entry.path).collect();
+        // 递归检查 tree 和 index 是否一致
+        Self::is_index_modified_for_tree(gitdir, tree, &PathBuf::new(), &index)
+    }
 
-        // 遍历 tree 中的文件
+    fn is_index_modified_for_tree(gitdir: &Path, tree: &Tree, base_path: &Path, index: &Index) -> Result<bool> {
         for entry in &tree.0 {
-            if let Some(index_entry) = index.entries.iter().find(|e| e.name == entry.path.to_string_lossy()) {
-                // 比较 tree 文件的哈希值与 index 中的哈希值
-                if entry.hash != index_entry.hash {
-                    return Ok(true); // 文件内容不同
+            let entry_path = base_path.join(&entry.path);
+            
+            match entry.mode {
+                FileMode::Blob | FileMode::Exec => {
+                    // 对于文件，在 index 中查找对应条目
+                    if let Some(index_entry) = index.entries.iter().find(|e| e.name == entry_path.to_string_lossy()) {
+                        // 比较 tree 文件的哈希值与 index 中的哈希值
+                        if entry.hash != index_entry.hash {
+                            println!("Index modified for file: {:?}", entry_path);
+                            return Ok(true); // 文件内容不同
+                        }
+                    } else {
+                        // 如果 tree 中的文件在 index 中不存在
+                        println!("Index missing for file: {:?}", entry_path);
+                        return Ok(true); // 文件缺失
+                    }
                 }
-            } else {
-                // 如果 tree 中的文件在 index 中不存在
-                return Ok(true); // 文件缺失
+                FileMode::Tree => {
+                    // 对于目录，递归检查其内容
+                    let sub_tree = Self::read_tree(gitdir, entry.hash.clone())?;
+                    if Self::is_index_modified_for_tree(gitdir, &sub_tree, &entry_path, index)? {
+                        println!("Index modified for tree: {:?}", entry_path);
+                        return Ok(true);
+                    }
+                }
+                _ => {
+                    return Err(GitError::invalid_command(format!(
+                        "Unsupported file mode: {:?}",
+                        entry.mode
+                    )));
+                }
             }
         }
 
-        // 检查 index 中是否有多余的条目
-        for index_entry in &index.entries {
-            if !tree_paths.contains(&PathBuf::from(&index_entry.name)) {
-                return Ok(true); // 多余的文件
-            }
-        }
-
-        Ok(false) // index 和 tree 一致
+        Ok(false) // 当前层级的 tree 和 index 一致
     }
 
     fn merge_tree_into_index_wrapper(gitdir: &Path, tree: &Tree, prefix: &Path) -> Result<()> {
