@@ -9,3 +9,5 @@ pub mod tree;
 pub mod commit;
 pub mod test;
 pub mod refs;
+pub mod protocol;
+pub mod packfile;

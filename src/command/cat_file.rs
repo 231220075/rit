@@ -7,7 +7,7 @@ use crate::utils::{
         decompress_file,
         decompress_file_as_bytes,
     },
-    fs::obj_to_pathbuf,
+    fs::{obj_to_pathbuf_legacy, obj_to_pathbuf},
     objtype::{
         ObjType,
         parse_meta,
@@ -44,7 +44,7 @@ pub struct CatFile {
     #[arg(short = 't', group = "option", help = "show object type (one of 'blob', 'tree', 'commit', 'tag', ...)")]
     show_type: bool,
 
-    #[arg(required = true, value_parser = obj_to_pathbuf)]
+    #[arg(required = true, value_parser = obj_to_pathbuf_legacy)]
     objpath: PathBuf,
 }
 

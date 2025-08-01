@@ -114,6 +114,18 @@ impl GitError {
         )
     }
 
+    pub fn network_error(msg: String) -> Box<dyn Error> {
+        Box::new(
+            Self::InvalidCommand(format!("Network error: {}", msg))
+        )
+    }
+    
+    pub fn protocol_error(msg: &str) -> Box<dyn Error> {
+        Box::new(
+            Self::InvalidCommand(format!("Protocol error: {}", msg))
+        )
+    }
+
     pub fn not_in_gitrepo() -> Box<dyn Error> {
         Box::new(
             Self::NotInGitRepo
@@ -202,6 +214,7 @@ impl fmt::Display for GitError {
             GitError::NotACCommit(msg) => write!(f, "debug Error, should not happen in release: {}", msg),
             GitError::MergeConflict(msg) => write!(f, "{}", msg),
             GitError::NoSameAncestor(msg) => write!(f, "{}", msg),
+            
         }
     }
 }

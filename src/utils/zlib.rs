@@ -76,3 +76,8 @@ pub fn compress_object<T: ObjType>(bytes: Vec<u8>) -> Result<Vec<u8>>
     let meta = format!("{} {}\0", T::VALUE, bytes.len()).into_bytes().into_iter();
     compress(meta.chain(bytes))
 }
+
+/// 解压缩对象数据（从文件内容）
+pub fn decompress_object(compressed_data: &[u8]) -> Result<Vec<u8>> {
+    decompress(compressed_data.to_vec())
+}

@@ -29,6 +29,7 @@ pub use add::Add;
 pub use rm::Rm;
 pub use merge::Merge;
 pub use commit::Commit;
+pub use fetch::Fetch;
 pub use cat_file::CatFile;
 pub use hash_object::HashObject;
 pub use update_index::UpdateIndex;

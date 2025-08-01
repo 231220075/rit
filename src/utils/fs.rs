@@ -14,7 +14,7 @@ use crate::{
 use super::{
     hash::hash_object,
     zlib::{
-        compress_object,
+        compress_object as zlib_compress_object,
         decompress_file_as_bytes,
     },
     objtype::{
@@ -43,7 +43,13 @@ fn is_executable(file_path: impl AsRef<Path>) -> Result<bool> {
 
 
 /*  check the whether s exists in git's objects directory  */
-pub fn obj_to_pathbuf(s: &str) -> std::result::Result<PathBuf, String> {
+pub fn obj_to_pathbuf(gitdir: &PathBuf, s: &str) -> PathBuf {
+    let (first, second) = s.split_at(2);
+    gitdir.join("objects").join(first).join(second)
+}
+
+// 保持旧版本兼容性
+pub fn obj_to_pathbuf_legacy(s: &str) -> std::result::Result<PathBuf, String> {
     if s.len() != 40 {
         Err(format!("{} 长度不等于40，实际长度: {}", s, s.len()))
     }
@@ -106,7 +112,7 @@ pub fn write_object<T: ObjType>(mut gitdir: PathBuf, content: Vec<u8>) -> Result
     std::fs::create_dir_all(gitdir.parent().unwrap()).map_err(GitError::no_permision)?;
     std::fs::write(
         &gitdir,
-    compress_object::<T>(content)?).map_err(GitError::no_permision)?;
+    zlib_compress_object::<T>(content)?).map_err(GitError::no_permision)?;
 
     Ok(commit_hash)
 }
@@ -200,6 +206,12 @@ where
     else {
         Err(GitError::not_a_repofile(path.as_ref()))
     }
+}
+
+/// 简单的对象压缩函数
+pub fn compress_object(data: &[u8]) -> Result<Vec<u8>> {
+    use super::zlib::compress;
+    compress(data.to_vec())
 }
 
 
