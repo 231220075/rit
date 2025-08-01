@@ -199,16 +199,16 @@ impl PackfileProcessor {
         Ok(created_hashes)
     }
     
-    fn read_object(&self, cursor: &mut Cursor<&[u8]>, index: u32) -> Result<ObjectData> {
+    fn read_object(&self, cursor: &mut Cursor<&[u8]>, _index: u32) -> Result<ObjectData> {
         // 读取对象头部
         let (obj_type, size) = self.read_object_header(cursor)?;
-        println!("DEBUG: Object {}: type={}, size={}", index, obj_type, size);
+        //println!("DEBUG: Object {}: type={}, size={}", index, obj_type, size);
         
         match obj_type {
             0 => {
                 // 无效的对象类型，检查数据
                 let pos = cursor.position();
-                println!("DEBUG: Invalid object type 0 at position {}", pos);
+                //println!("DEBUG: Invalid object type 0 at position {}", pos);
                 return Err(GitError::invalid_command(format!("Invalid object type: {} at position {}", obj_type, pos)));
             }
             1..=4 => {
@@ -222,9 +222,9 @@ impl PackfileProcessor {
             }
             6 => {
                 // OFS_DELTA - offset delta
-                println!("DEBUG: Reading OFS_DELTA offset at position {}", cursor.position());
+                //println!("DEBUG: Reading OFS_DELTA offset at position {}", cursor.position());
                 let offset = self.read_offset_encoding(cursor)?;
-                println!("DEBUG: OFS_DELTA offset: {}, now at position {}", offset, cursor.position());
+                //println!("DEBUG: OFS_DELTA offset: {}, now at position {}", offset, cursor.position());
                 let compressed_data = self.read_compressed_data(cursor, size)?;
                 Ok(ObjectData {
                     obj_type,
@@ -234,12 +234,12 @@ impl PackfileProcessor {
             }
             7 => {
                 // REF_DELTA - reference delta
-                println!("DEBUG: Reading REF_DELTA at position {}", cursor.position());
-                
+                //println!("DEBUG: Reading REF_DELTA at position {}", cursor.position());
+
                 // 检查剩余数据长度
                 let remaining = cursor.get_ref().len() - cursor.position() as usize;
-                println!("DEBUG: Remaining data length: {}", remaining);
-                
+                //println!("DEBUG: Remaining data length: {}", remaining);
+
                 if remaining < 20 {
                     return Err(GitError::invalid_command(format!(
                         "Not enough data for REF_DELTA hash: {} bytes remaining, need 20", 
@@ -249,11 +249,11 @@ impl PackfileProcessor {
                 
                 // 显示接下来的30个字节以便调试
                 let current_pos = cursor.position() as usize;
-                let debug_bytes = &cursor.get_ref()[current_pos..std::cmp::min(current_pos + 30, cursor.get_ref().len())];
-                println!("DEBUG: Next 30 bytes: {:02x?}", debug_bytes);
-                
+                let _debug_bytes = &cursor.get_ref()[current_pos..std::cmp::min(current_pos + 30, cursor.get_ref().len())];
+                //println!("DEBUG: Next 30 bytes: {:02x?}", debug_bytes);
+
                 // 暂时跳过有问题的 REF_DELTA 对象
-                println!("DEBUG: Skipping problematic REF_DELTA object temporarily");
+                //println!("DEBUG: Skipping problematic REF_DELTA object temporarily");
                 return Err(GitError::invalid_command("Skipping REF_DELTA for now".to_string()));
                 
                 /*
@@ -278,23 +278,23 @@ impl PackfileProcessor {
     }
     
     fn read_object_header(&self, cursor: &mut Cursor<&[u8]>) -> Result<(u8, usize)> {
-        let pos_before = cursor.position();
+        let _pos_before = cursor.position();
         let mut byte = cursor.read_u8()?;
         let obj_type = (byte >> 4) & 7;
         let mut size = (byte & 15) as usize;
         let mut shift = 4;
         
-        println!("DEBUG: read_object_header at pos {}: first_byte=0b{:08b} ({}), obj_type={}, initial_size={}", 
-                 pos_before, byte, byte, obj_type, size);
+        //println!("DEBUG: read_object_header at pos {}: first_byte=0b{:08b} ({}), obj_type={}, initial_size={}", 
+        //         pos_before, byte, byte, obj_type, size);
         
         while byte & 0x80 != 0 {
             byte = cursor.read_u8()?;
             size |= ((byte & 0x7f) as usize) << shift;
             shift += 7;
-            println!("DEBUG: Additional size byte: 0b{:08b} ({}), new_size={}", byte, byte, size);
+            //println!("DEBUG: Additional size byte: 0b{:08b} ({}), new_size={}", byte, byte, size);
         }
         
-        println!("DEBUG: Final object header: type={}, size={}", obj_type, size);
+        //println!("DEBUG: Final object header: type={}, size={}", obj_type, size);
         Ok((obj_type, size))
     }
     
@@ -312,7 +312,7 @@ impl PackfileProcessor {
     
     fn read_compressed_data(&self, cursor: &mut Cursor<&[u8]>, expected_size: usize) -> Result<Vec<u8>> {
         let start_pos = cursor.position() as usize;
-        println!("DEBUG: read_compressed_data at pos {}, expected_size={}", start_pos, expected_size);
+        //println!("DEBUG: read_compressed_data at pos {}, expected_size={}", start_pos, expected_size);
         
         let remaining_data = &cursor.get_ref()[start_pos..];
         
@@ -321,13 +321,13 @@ impl PackfileProcessor {
         let decompressed = decoder.decompress(expected_size)?;
         let bytes_consumed = decoder.bytes_consumed();
         
-        println!("DEBUG: Successfully decompressed {} bytes using {} compressed bytes (precise)", 
-                 decompressed.len(), bytes_consumed);
+        //println!("DEBUG: Successfully decompressed {} bytes using {} compressed bytes (precise)", 
+        //         decompressed.len(), bytes_consumed);
         
         // 更新cursor位置
         let new_pos = start_pos + bytes_consumed;
         cursor.set_position(new_pos as u64);
-        println!("DEBUG: Updated cursor position to {}", new_pos);
+        //println!("DEBUG: Updated cursor position to {}", new_pos);
         
         Ok(decompressed)
     }
@@ -339,7 +339,7 @@ impl PackfileProcessor {
                 Ok(obj.clone())
             }
             Some(DeltaInfo::OfsLink(offset)) => {
-                println!("DEBUG: Resolving OFS_DELTA with offset {}", offset);
+                //println!("DEBUG: Resolving OFS_DELTA with offset {}", offset);
                 
                 // 计算基础对象在 packfile 中的位置
                 let current_pos = object_positions[current_index as usize];
@@ -377,7 +377,7 @@ impl PackfileProcessor {
                 self.apply_delta(base_obj, &obj.data)
             }
             Some(DeltaInfo::RefLink(base_hash)) => {
-                println!("DEBUG: Resolving REF_DELTA with base hash {}", hex::encode(base_hash));
+                //println!("DEBUG: Resolving REF_DELTA with base hash {}", hex::encode(base_hash));
                 
                 // 在已解析的对象中查找基础对象
                 let mut base_obj = None;
@@ -395,7 +395,7 @@ impl PackfileProcessor {
                 match base_obj {
                     Some(base) => self.apply_delta(base, &obj.data),
                     None => {
-                        println!("DEBUG: Base object not found for REF_DELTA, hash: {}", hex::encode(base_hash));
+                        //println!("DEBUG: Base object not found for REF_DELTA, hash: {}", hex::encode(base_hash));
                         // 暂时跳过，可能需要从文件系统读取
                         Err(GitError::invalid_command(format!(
                             "Base object {} not found for REF_DELTA", 
@@ -408,13 +408,13 @@ impl PackfileProcessor {
     }
     
     fn apply_delta(&self, base_obj: &ObjectData, delta_data: &[u8]) -> Result<ObjectData> {
-        println!("DEBUG: Applying delta to base object type {}", base_obj.obj_type);
+        //println!("DEBUG: Applying delta to base object type {}", base_obj.obj_type);
         
         let mut cursor = Cursor::new(delta_data);
         
         // 读取基础对象大小
         let base_size = self.read_delta_size(&mut cursor)?;
-        println!("DEBUG: Delta expects base size: {}, actual: {}", base_size, base_obj.data.len());
+        //println!("DEBUG: Delta expects base size: {}, actual: {}", base_size, base_obj.data.len());
         
         if base_size != base_obj.data.len() {
             return Err(GitError::invalid_command(format!(
@@ -426,7 +426,7 @@ impl PackfileProcessor {
         
         // 读取结果对象大小
         let result_size = self.read_delta_size(&mut cursor)?;
-        println!("DEBUG: Delta result size: {}", result_size);
+        //println!("DEBUG: Delta result size: {}", result_size);
         
         // 应用 delta 指令
         let mut result_data = Vec::new();
@@ -446,7 +446,7 @@ impl PackfileProcessor {
                 }
                 
                 result_data.extend_from_slice(&base_obj.data[offset..offset + size]);
-                println!("DEBUG: Copy {} bytes from offset {}", size, offset);
+                //println!("DEBUG: Copy {} bytes from offset {}", size, offset);
             } else {
                 // 插入指令
                 let size = instruction as usize;
@@ -458,7 +458,7 @@ impl PackfileProcessor {
                     let mut insert_data = vec![0u8; size];
                     cursor.read_exact(&mut insert_data)?;
                     result_data.extend_from_slice(&insert_data);
-                    println!("DEBUG: Insert {} bytes", size);
+                    //println!("DEBUG: Insert {} bytes", size);
                 }
             }
         }
@@ -471,7 +471,7 @@ impl PackfileProcessor {
             )));
         }
         
-        println!("DEBUG: Delta applied successfully, result: {} bytes", result_data.len());
+        //println!("DEBUG: Delta applied successfully, result: {} bytes", result_data.len());
         
         Ok(ObjectData {
             obj_type: base_obj.obj_type, // 继承基础对象的类型

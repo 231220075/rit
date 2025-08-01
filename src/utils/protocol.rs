@@ -80,8 +80,8 @@ impl GitProtocol {
     }
     
     fn parse_refs_response(&self, body: &str) -> Result<Vec<RemoteRef>> {
-        println!("DEBUG: Parsing refs response, body length: {}", body.len());
-        println!("DEBUG: First 200 chars: {:?}", &body[..std::cmp::min(200, body.len())]);
+        //println!("DEBUG: Parsing refs response, body length: {}", body.len());
+        //println!("DEBUG: First 200 chars: {:?}", &body[..std::cmp::min(200, body.len())]);
         
         let mut refs: Vec<RemoteRef> = Vec::new();
         
@@ -92,7 +92,7 @@ impl GitProtocol {
         // 跳过第一个服务声明包
         if let Some(first_packet) = self.read_pkt_line(&body_bytes, &mut pos) {
             let first_line = String::from_utf8_lossy(&first_packet);
-            println!("DEBUG: First packet: {:?}", first_line);
+            //println!("DEBUG: First packet: {:?}", first_line);
             if !first_line.contains("git-upload-pack") {
                 return Err(GitError::protocol_error("Invalid refs response"));
             }
@@ -101,7 +101,7 @@ impl GitProtocol {
         // 跳过第一个 flush packet（服务声明后的分隔符）
         if let Some(packet_data) = self.read_pkt_line(&body_bytes, &mut pos) {
             if packet_data.is_empty() {
-                println!("DEBUG: Skipped first flush packet");
+                //println!("DEBUG: Skipped first flush packet");
             } else {
                 // 如果不是 flush，回退位置并处理
                 pos -= 4;
@@ -119,7 +119,7 @@ impl GitProtocol {
             }
             
                 let line = String::from_utf8_lossy(&packet_data);
-                println!("DEBUG: Packet {}: {:?}", packet_count, line);
+                //println!("DEBUG: Packet {}: {:?}", packet_count, line);
                 
                 // 解析引用行：hash ref_name [capabilities]
                 let line = if let Some(null_pos) = line.find('\0') {
@@ -196,7 +196,7 @@ impl GitProtocol {
     fn calculate_wants(&self, refs: &[RemoteRef], wanted_refs: &[String]) -> Result<Vec<String>> {
         let mut wants = Vec::new();
         
-        println!("DEBUG: calculate_wants called with {} refs, {} wanted_refs", refs.len(), wanted_refs.len());
+        //println!("DEBUG: calculate_wants called with {} refs, {} wanted_refs", refs.len(), wanted_refs.len());
         for r in refs {
             println!("DEBUG: Available ref: {}", r.name);
         }
@@ -219,19 +219,19 @@ impl GitProtocol {
             }
         }
         
-        println!("DEBUG: Total wants: {}", wants.len());
+        //println!("DEBUG: Total wants: {}", wants.len());
         
         Ok(wants)
     }
     
     fn upload_pack_http(&self, base_url: &str, wants: &[String]) -> Result<Vec<u8>> {
-        println!("DEBUG: upload_pack_http called with {} wants", wants.len());
-        for want in wants {
-            println!("DEBUG: Want: {}", want);
-        }
+        //println!("DEBUG: upload_pack_http called with {} wants", wants.len());
+        // for want in wants {
+        //     println!("DEBUG: Want: {}", want);
+        // }
         
         let url = format!("{}/git-upload-pack", base_url);
-        println!("DEBUG: POST URL: {}", url);
+        //println!("DEBUG: POST URL: {}", url);
         
         // 构建upload-pack请求体
         let mut request_body = Vec::new();
@@ -240,13 +240,13 @@ impl GitProtocol {
         let caps = "multi_ack_detailed side-band-64k thin-pack ofs-delta";
         if !wants.is_empty() {
             let first_want = format!("want {} {}\n", wants[0], caps);
-            println!("DEBUG: First want line: {:?}", first_want);
+            //println!("DEBUG: First want line: {:?}", first_want);
             request_body.extend_from_slice(&self.encode_pkt_line(&first_want));
             
             // 添加其他want行
             for want in &wants[1..] {
                 let want_line = format!("want {}\n", want);
-                println!("DEBUG: Additional want line: {:?}", want_line);
+                //println!("DEBUG: Additional want line: {:?}", want_line);
                 request_body.extend_from_slice(&self.encode_pkt_line(&want_line));
             }
         }
@@ -257,8 +257,8 @@ impl GitProtocol {
         // 添加done（表示我们没有对象要提供）
         request_body.extend_from_slice(&self.encode_pkt_line("done\n"));
         
-        println!("DEBUG: Request body length: {}", request_body.len());
-        println!("DEBUG: Request body: {:?}", String::from_utf8_lossy(&request_body));
+        //println!("DEBUG: Request body length: {}", request_body.len());
+        //println!("DEBUG: Request body: {:?}", String::from_utf8_lossy(&request_body));
         
         let response = self.client
             .post(&url)
@@ -267,7 +267,7 @@ impl GitProtocol {
             .send()
             .map_err(|e| GitError::network_error(format!("Failed to upload-pack: {}", e)))?;
         
-        println!("DEBUG: Response status: {}", response.status());
+        //println!("DEBUG: Response status: {}", response.status());
         
         if !response.status().is_success() {
             return Err(GitError::network_error(format!(
@@ -282,7 +282,7 @@ impl GitProtocol {
         
         println!("DEBUG: Response body length: {}", body.len());
         if body.len() > 0 {
-            println!("DEBUG: First 100 bytes: {:?}", &body[..std::cmp::min(100, body.len())]);
+            //println!("DEBUG: First 100 bytes: {:?}", &body[..std::cmp::min(100, body.len())]);
         }
         
         // 解析响应，提取packfile数据
@@ -365,17 +365,17 @@ impl GitProtocol {
             pos += packet_len as usize;
         }
         
-        println!("DEBUG: Total packfile data extracted: {} bytes", packfile_data.len());
+        //println!("DEBUG: Total packfile data extracted: {} bytes", packfile_data.len());
         if packfile_data.len() >= 8 {
-            println!("DEBUG: Packfile header: {:?}", &packfile_data[0..8]);
+            //println!("DEBUG: Packfile header: {:?}", &packfile_data[0..8]);
             if packfile_data.starts_with(b"PACK") {
                 println!("DEBUG: Valid PACK header found!");
             } else {
-                println!("DEBUG: No PACK header, trying to find it...");
+                //println!("DEBUG: No PACK header, trying to find it...");
                 // 尝试在数据中找到PACK头
                 for i in 0..std::cmp::min(1000, packfile_data.len() - 4) {
                     if &packfile_data[i..i+4] == b"PACK" {
-                        println!("DEBUG: Found PACK header at offset {}", i);
+                        //println!("DEBUG: Found PACK header at offset {}", i);
                         return Ok(packfile_data[i..].to_vec());
                     }
                 }

@@ -50,18 +50,42 @@ pub struct Commit {
 type CommitPrototype<'a> = (&'a[u8], Vec<&'a[u8]>, &'a[u8], &'a[u8], &'a[u8]);
 impl Commit {
     fn parse_from_bytes<'a>(bytes: &'a[u8]) -> IResult<&'a [u8], CommitPrototype<'a>> {
-        let parse_tree = terminated(preceded(tag("tree "),take_until("\n")), tag("\n"));
-        let parse_parent = many0(terminated(preceded(tag("parent "),take_until("\n")), tag("\n")));
-        let parse_author = terminated(preceded(tag("author "),take_until("\n")), tag("\n"));
-        let parse_committer = terminated(preceded(tag("committer "),take_until("\n")), tag("\n"));
-        let parse_messages = preceded(tag("\n"), take_while(|_|true));
-        (
-            parse_tree,
-            parse_parent,
-            parse_author,
-            parse_committer,
-            parse_messages,
-        ).parse(bytes)
+        let mut parse_tree = terminated(preceded(tag("tree "),take_until("\n")), tag("\n"));
+        let mut parse_parent = many0(terminated(preceded(tag("parent "),take_until("\n")), tag("\n")));
+        let mut parse_author = terminated(preceded(tag("author "),take_until("\n")), tag("\n"));
+        let mut parse_committer = terminated(preceded(tag("committer "),take_until("\n")), tag("\n"));
+        
+        // 解析可选的 gpgsig 字段（跳过整个签名块）
+        let mut parse_gpgsig = opt(terminated(
+            preceded(
+                tag("gpgsig "), 
+                take_until("\n\n")  // 取直到双换行符
+            ), 
+            tag("\n\n")
+        ));
+        
+        let mut parse_messages = take_while(|_|true);
+        
+        // 解析主要字段
+        let (remaining, tree_hash) = parse_tree.parse(bytes)?;
+        let (remaining, parent_hash) = parse_parent.parse(remaining)?;
+        let (remaining, author) = parse_author.parse(remaining)?;
+        let (remaining, committer) = parse_committer.parse(remaining)?;
+        
+        // 跳过可选的 gpgsig 字段
+        let (remaining, _) = parse_gpgsig.parse(remaining)?;
+        
+        // 如果没有找到 gpgsig，检查是否有空行
+        let (remaining, _) = if remaining.starts_with(b"\n") {
+            tag("\n").parse(remaining)?
+        } else {
+            (remaining, &[][..])
+        };
+        
+        // 解析消息
+        let (remaining, message) = parse_messages.parse(remaining)?;
+        
+        Ok((remaining, (tree_hash, parent_hash, author, committer, message)))
     }
 }
 
