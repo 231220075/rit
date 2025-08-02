@@ -9,6 +9,7 @@ pub mod init;
 pub mod merge;
 pub mod pull;
 pub mod push;
+pub mod remote;
 pub mod rm;
 
 /// plumbing command
@@ -31,6 +32,7 @@ pub use merge::Merge;
 pub use commit::Commit;
 pub use fetch::Fetch;
 pub use pull::Pull;
+pub use remote::Remote;
 pub use cat_file::CatFile;
 pub use hash_object::HashObject;
 pub use update_index::UpdateIndex;
