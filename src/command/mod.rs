@@ -32,6 +32,7 @@ pub use merge::Merge;
 pub use commit::Commit;
 pub use fetch::Fetch;
 pub use pull::Pull;
+pub use push::Push;
 pub use remote::Remote;
 pub use cat_file::CatFile;
 pub use hash_object::HashObject;

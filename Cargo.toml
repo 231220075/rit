@@ -18,6 +18,8 @@ tempfile = "3.19.1"
 # 网络和HTTP支持
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 url = "2.4"
+# 密码安全输入
+rpassword = "7.0"
 # 更好的错误处理
 anyhow = "1.0"
 # 异步支持 (可选)
