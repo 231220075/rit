@@ -14,7 +14,7 @@ use crate::{
     Result,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexEntry {
     pub mode: u32,
     pub hash: String,
@@ -49,7 +49,14 @@ impl Index {
     }
 
     pub fn add_entry(&mut self, new_entry: IndexEntry) {
+        // 移除已存在的同名条目
+        self.entries.retain(|entry| entry.name != new_entry.name);
+        
+        // 添加新条目
         self.entries.push(new_entry);
+        
+        // 按路径名排序（Git要求index条目按路径排序）
+        self.entries.sort_by(|a, b| a.name.cmp(&b.name));
     }
 
     pub fn write_to_file(&self, path: &Path) -> std::io::Result<()> {

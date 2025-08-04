@@ -40,6 +40,22 @@ impl Push {
         if self.verbose {
             println!("Pushing to {}", remote_config.url);
         }
+
+        // 检查URL类型并选择传输方式
+        if remote_config.url.starts_with("git@") || remote_config.url.contains("ssh://") {
+            return self.push_via_ssh(&remote_config, gitdir);
+        } else {
+            return self.push_via_https(&remote_config, gitdir);
+        }
+    }
+
+    /// 通过HTTPS推送
+    fn push_via_https(&self, remote_config: &RemoteConfig, gitdir: &PathBuf) -> Result<()> {
+        
+        
+        if self.verbose {
+            println!("Pushing to {}", remote_config.url);
+        }
         
         // 2. 获取当前分支和提交
         let (current_branch, current_commit) = self.get_current_state(gitdir)?;
@@ -71,6 +87,57 @@ impl Push {
         
         println!("Successfully pushed to {}/{}", self.remote, target_branch);
         Ok(())
+    }
+
+    /// 通过SSH推送
+    fn push_via_ssh(&self, remote_config: &RemoteConfig, gitdir: &PathBuf) -> Result<()> {
+        if self.verbose {
+            println!("Using SSH transport for {}", remote_config.url);
+        }
+        
+        // 2. 获取当前分支和提交
+        let (current_branch, current_commit) = self.get_current_state(gitdir)?;
+        let target_branch = self.branch.as_ref().unwrap_or(&current_branch);
+        
+        if self.verbose {
+            println!("Pushing branch '{}' ({})", target_branch, &current_commit[..8]);
+        }
+        
+        // 使用系统Git进行SSH推送（临时解决方案）
+        self.push_via_system_git(&remote_config.url, target_branch)?;
+        
+        println!("Successfully pushed to {}/{}", self.remote, target_branch);
+        Ok(())
+    }
+    
+    /// 使用系统Git进行推送（SSH支持）
+    fn push_via_system_git(&self, _url: &str, branch: &str) -> Result<()> {
+        use std::process::Command;
+        
+        let mut cmd = Command::new("git");
+        cmd.arg("push");
+        cmd.arg("origin");
+        cmd.arg(format!("{}:{}", branch, branch));
+        
+        if self.force {
+            cmd.arg("--force");
+        }
+        
+        if self.verbose {
+            cmd.arg("--verbose");
+        }
+        
+        let output = cmd.output()?;
+        
+        if output.status.success() {
+            if self.verbose {
+                println!("Git push output: {}", String::from_utf8_lossy(&output.stdout));
+            }
+            Ok(())
+        } else {
+            let error = String::from_utf8_lossy(&output.stderr);
+            Err(GitError::invalid_command(format!("Git push failed: {}", error)))
+        }
     }
     
     /// 获取远程仓库配置

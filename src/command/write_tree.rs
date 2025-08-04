@@ -62,32 +62,22 @@ impl WriteTree {
             } else {
                 continue;
             };
-            if let Some((first, rest)) = rel_name.split_once('/') {
-                // 子目录
-                let _sub_prefix = if prefix.is_empty() {
-                    first.to_string()
-                } else {
-                    format!("{}/{}", prefix, first)
-                };
+            
+            if let Some((first, _rest)) = rel_name.split_once('/') {
+                // 这是一个子目录的文件，将整个entry添加到子目录处理列表
                 subdir_map.entry(first.to_string())
                     .or_default()
-                    .push(IndexEntry {
-                        name: if rest.is_empty() {
-                            first.to_string()
-                        } else {
-                            format!("{}/{}", first, rest)
-                        },
-                        mode: entry.mode,
-                        hash: entry.hash.clone(),
-                    });
+                    .push(entry.clone());  // 保持原始entry不变
             } else {
-                // 普通文件
+                // 普通文件，直接在当前级别
                 tree_entries.insert(
                     rel_name.to_string(),
                     (entry.mode, entry.hash.clone(), false),
                 );
             }
         }
+        
+        // 处理子目录
         for (subdir, sub_entries) in subdir_map {
             let sub_prefix = if prefix.is_empty() {
                 subdir.clone()

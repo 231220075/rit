@@ -48,11 +48,9 @@ impl Commit {
 impl SubCommand for Commit {
     fn run(&self, gitdir: Result<PathBuf>) -> Result<i32> {
         let gitdir = gitdir?;
-        let index_path = gitdir.join("index");
-
-        let index = Index::new();
-        let tree: Tree = index.read_from_file(&index_path)?.into();
-        let tree_hash = write_object::<Tree>(gitdir.clone(), tree.into())?;
+        
+        // 使用正确的tree构建逻辑而不是简单的转换
+        let tree_hash = WriteTree::lazy_fucker(gitdir.clone())?;
 
         let head_ref = read_head_ref(&gitdir)?;
         let parent_commit = read_ref_commit(&gitdir, &head_ref).ok();
