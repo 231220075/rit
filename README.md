@@ -512,3 +512,4 @@ flowchart TD
 - 走过路过点个star（bushi）
 - 2025.8.6 初版完结纪念
 
+- 2025.12.5 test gpg status
